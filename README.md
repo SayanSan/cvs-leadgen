@@ -1,73 +1,66 @@
-# CVS Lead Gen Machine 🤖
+# CVS LeadGen — Automated Lead Generation Machine
 
-An autonomous multi-agent lead generation pipeline built for CVS. It finds B2B SaaS and CRM prospects, sends personalized cold emails, and books meetings — all on autopilot.
-
----
-
-## How It Works
-
-Three AI agents run in sequence, each handling one stage of the sales funnel:
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Scout Agent   │────▶│  Outreach Agent  │────▶│   Sales Agent   │
-│                 │     │                  │     │                 │
-│ LinkedIn scrape │     │ Claude generates │     │ Reads replies   │
-│ Google Maps     │     │ personalized     │     │ Classifies intent│
-│ Stores leads    │     │ cold emails      │     │ Books meetings  │
-│ in SQLite CRM   │     │ Sends via Gmail  │     │ Syncs Calendly  │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-         │                       │                        │
-         ▼                       ▼                        ▼
-    new leads              status: emailed          status: replied
-                                                  meeting_booked
-```
-
-### Agent 1 — Scout Agent
-- Searches LinkedIn for decision-makers (CTOs, VPs, Founders) at SaaS and CRM companies
-- Scrapes Google Maps for tech businesses in target Indian cities
-- Deduplicates and stores all leads in a local SQLite database
-- Powered by **Apify MCP** — no browser automation needed
-
-### Agent 2 — Outreach Agent
-- Picks up all `new` leads with email addresses
-- Uses **Claude AI (Haiku)** to generate a hyper-personalized opening line and pain point for each lead
-- Sends branded HTML emails via **Gmail API** with your portfolio and Calendly link
-- Sends follow-up emails after 3 days of no reply (max 2 follow-ups per lead)
-
-### Agent 3 — Sales Agent
-- Polls Gmail inbox for replies from leads
-- Uses **Claude AI** to classify each reply: `interested` / `not_interested` / `question` / `unsubscribe` / `auto_reply`
-- Responds automatically:
-  - **Interested** → sends Calendly booking link
-  - **Question** → drafts a smart answer and includes Calendly link
-  - **Unsubscribe** → marks lead as unsubscribed, never contacts again
-- Syncs **Calendly** to detect bookings and marks leads as `meeting_booked`
+An end-to-end automated lead generation system built for **Code Visionary Services** — finds businesses that need websites, mobile apps, and digital marketing, then reaches out with personalized emails and auto-generated demo pages.
 
 ---
 
-## Lead Pipeline
-
-Every lead moves through these statuses in the SQLite CRM:
+## What It Does
 
 ```
-new → emailed → replied → meeting_booked → closed
-                        ↘ unsubscribed
-                        ↘ not_interested
+Scout Agent → Outreach Agent → Sales Agent
+     ↓               ↓               ↓
+Find leads     Send emails      Monitor replies
+(Google Maps   with custom      & book meetings
+ + LinkedIn)   demo pages       via Calendly
 ```
+
+1. **Scout Agent** — scrapes Google Maps and LinkedIn for local businesses across Indian cities that need digital services (restaurants, salons, clinics, retail shops, real estate agents, coaching institutes, etc.)
+2. **Outreach Agent** — generates a personalized demo page per lead and sends a tailored email with the demo link
+3. **Sales Agent** — monitors inbox for replies, classifies intent (interested / question / unsubscribe), responds automatically, and syncs meeting bookings from Calendly
+4. **Web Dashboard** — full management UI to view leads, run agents, and watch live logs
 
 ---
 
 ## Tech Stack
 
-| Component | Tool |
-|---|---|
-| Lead Scraping | [Apify MCP](https://apify.com) — LinkedIn + Google Maps actors |
-| Email Sending | Gmail API (OAuth 2.0) |
-| AI Personalization | Anthropic Claude (claude-haiku-4-5) |
-| Meeting Booking | Calendly API |
-| Database | SQLite (local, zero-config) |
-| Language | Python 3.11+ |
+| Layer | Technology |
+|-------|-----------|
+| Lead Scraping | [Apify](https://apify.com) — Google Maps Scraper + LinkedIn Profile Scraper |
+| Email | Gmail API (OAuth 2.0) |
+| Meetings | Calendly REST API |
+| Database | SQLite (local CRM) |
+| Web Server | FastAPI + Uvicorn |
+| Demo Pages | Static HTML hosted on GitHub Pages |
+| Hosting | Railway |
+| Language | Python 3.9+ |
+
+---
+
+## Lead Pipeline
+
+```
+new → emailed → replied → meeting_booked → closed
+```
+
+Each lead also gets a `service_needed` tag: `website` / `web_app` / `digital_marketing`
+
+---
+
+## Target Industries & Cities
+
+**Industries (Google Maps):**
+- Restaurants, Cafes, Hotels
+- Beauty Salons, Gyms, Fitness Centers
+- Clinics, Dentists, Diagnostic Centres
+- Clothing, Jewellery, Furniture Stores
+- Real Estate Agents, Interior Designers
+- CA / Chartered Accountants, Lawyers
+- Travel Agencies, Event & Wedding Planners
+- Coaching Institutes, Driving Schools
+- Retail Shops, Hardware Stores, Pharmacies
+- Manufacturing Companies
+
+**Cities:** Kolkata, Mumbai, Delhi, Bangalore, Hyderabad, Pune, Chennai, Ahmedabad, Jaipur, Goa, Kochi
 
 ---
 
@@ -76,176 +69,163 @@ new → emailed → replied → meeting_booked → closed
 ```
 cvs-leadgen/
 ├── agents/
-│   ├── scout_agent.py        # Lead scraping from LinkedIn & Google Maps
-│   ├── outreach_agent.py     # Email personalization & sending
-│   └── sales_agent.py        # Reply handling & meeting booking
+│   ├── scout_agent.py       # Finds leads via Apify
+│   ├── outreach_agent.py    # Personalizes & sends emails
+│   └── sales_agent.py       # Monitors replies & books meetings
 ├── tools/
-│   ├── apify_tools.py        # Apify actor wrappers
-│   ├── gmail_tools.py        # Gmail send/read/reply
-│   ├── calendly_tools.py     # Calendly events & invitees
-│   └── db_tools.py           # SQLite CRM operations
+│   ├── apify_tools.py       # Google Maps + LinkedIn scrapers
+│   ├── db_tools.py          # SQLite CRM (upsert, status updates)
+│   ├── gmail_tools.py       # Gmail API (send, read, OAuth)
+│   └── calendly_tools.py    # Calendly event sync
 ├── templates/
-│   └── emails.py             # HTML email templates (outreach, follow-up, meeting)
-├── config.py                 # Centralized config from env vars
-├── main.py                   # Pipeline orchestrator + dashboard
-├── scheduler.py              # Cron-style scheduler for automated runs
-├── .env.example              # Environment variable template
-└── requirements.txt
+│   ├── emails.py            # Email templates (outreach, follow-up, meeting)
+│   └── demo_pages.py        # Personalized HTML demo page generator
+├── docs/
+│   └── demos/               # Auto-generated demo pages (served via GitHub Pages)
+├── data/
+│   └── leads.db             # SQLite database (gitignored)
+├── server.py                # FastAPI web dashboard
+├── main.py                  # CLI runner
+├── scheduler.py             # Automated daily schedule
+├── config.py                # Env-based config
+├── requirements.txt
+├── railway.toml             # Railway deployment config
+└── Procfile
 ```
 
 ---
 
 ## Setup
 
-### 1. Clone & Install
+### 1. Clone & install
 
 ```bash
 git clone https://github.com/SayanSan/cvs-leadgen.git
 cd cvs-leadgen
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your credentials:
+### 2. Configure `.env`
 
 ```env
-# Apify — lead scraping
+# Apify (get free token at apify.com)
 APIFY_API_TOKEN=your_apify_token
 
-# Gmail — sender identity
-SENDER_EMAIL=you@yourcompany.com
-SENDER_NAME=Your Name
-
-# Anthropic — AI personalization
-ANTHROPIC_API_KEY=sk-ant-...
+# Gmail
+SENDER_EMAIL=you@yourdomain.com
+SENDER_NAME=Your Name | Company Name
 
 # Calendly
-CALENDLY_API_KEY=your_calendly_key
-CALENDLY_MEETING_LINK=https://calendly.com/yourlink
+CALENDLY_API_KEY=your_calendly_token
+CALENDLY_MEETING_LINK=https://calendly.com/your-link/30min
 
-# CVS company info (injected into emails)
-COMPANY_NAME=CVS
-COMPANY_PORTFOLIO_URL=https://yoursite.com/portfolio
-COMPANY_DEMO_URL=https://yoursite.com/demo
-COMPANY_WEBSITE=https://yoursite.com
+# Company info
+COMPANY_NAME=Your Company Name
+COMPANY_WEBSITE=https://yourwebsite.com
+COMPANY_PORTFOLIO_URL=https://yourwebsite.com/portfolio
 ```
 
-### 3. Gmail OAuth Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a project → Enable **Gmail API**
-3. Create OAuth 2.0 credentials → Download as `gmail_credentials.json`
-4. Place `gmail_credentials.json` in the project root
-5. Run once to authenticate:
+### 3. Gmail OAuth (one-time)
 
 ```bash
-python tools/gmail_tools.py --auth
+PYTHONPATH=. python3 tools/gmail_tools.py --auth
 ```
+A browser opens → log in → approve → `gmail_token.json` is saved.
 
-A browser window will open for Google sign-in. Token is saved to `gmail_token.json` for future runs.
+### 4. Enable GitHub Pages
 
-### 4. Apify Actors
+Go to your repo → **Settings → Pages → Source: main branch, /docs folder** → Save.
 
-The scout agent uses these Apify actors (all have a free tier):
-
-| Actor | Purpose |
-|---|---|
-| `harvestapi/linkedin-profile-scraper` | LinkedIn people + email extraction |
-| `harvestapi/linkedin-profile-search-scraper` | LinkedIn keyword search |
-| `compass/crawler-google-places` | Google Maps business scraper |
+Demo pages will be live at `https://yourusername.github.io/cvs-leadgen/demos/company-name.html`
 
 ---
 
 ## Usage
 
-```bash
-# Run the full pipeline (scout → outreach → sales)
-python main.py
-
-# Run individual agents
-python main.py scout        # Only scrape new leads
-python main.py outreach     # Only send emails
-python main.py sales        # Only check replies + Calendly
-
-# Dry run — simulate everything without sending emails
-python main.py --dry-run
-
-# View pipeline stats
-python main.py dashboard
-```
-
-### Dashboard output
-
-```
-==================================================
-   CVS Lead Gen Dashboard
-==================================================
-  Total Leads:       247
-  With Email:        189
-  Emails Sent:        93
---------------------------------------------------
-  new                 58  ██████████████████████████████
-  emailed             81  ██████████████████████████████
-  replied             24  ████████████
-  meeting_booked      12  ██████
-  not_interested      18  █████████
-  unsubscribed         9  ████
-==================================================
-```
-
-### Automated Scheduling
-
-Run the pipeline automatically every day:
+### Run manually
 
 ```bash
-python scheduler.py
+# Find leads
+PYTHONPATH=. python3 main.py scout
+
+# Send outreach emails (generates & publishes demos automatically)
+PYTHONPATH=. python3 main.py outreach
+
+# Monitor replies and book meetings
+PYTHONPATH=. python3 main.py sales
+
+# Send follow-ups to leads with no reply after 3 days
+PYTHONPATH=. python3 main.py followups
+
+# See dashboard stats in terminal
+PYTHONPATH=. python3 main.py dashboard
 ```
 
-Default schedule:
-- **9:00 AM** — Scout Agent (find new leads)
-- **10:00 AM** — Outreach Agent (send emails)
-- **Every 2 hours** — Sales Agent (check replies)
+### Dry run (no emails sent)
+
+```bash
+PYTHONPATH=. python3 main.py outreach --dry-run
+```
+
+### Start the web dashboard
+
+```bash
+PYTHONPATH=. python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
+Open [http://localhost:8000](http://localhost:8000)
+
+### Run on a schedule (daily automation)
+
+```bash
+PYTHONPATH=. python3 scheduler.py
+```
+
+Schedule:
+- **8:00 AM** — Scout Agent (find new leads)
+- **9:00 AM** — Outreach Agent (send emails)
+- **12:00 PM & 5:00 PM** — Sales Agent (check replies)
+- **Every 3 days** — Follow-up Agent
 
 ---
 
-## Email Templates
+## Deploy to Railway
 
-All three email types are in [`templates/emails.py`](templates/emails.py):
-
-| Template | When sent |
-|---|---|
-| **Initial Outreach** | First contact — AI-personalized opener + portfolio |
-| **Follow-up** | 3 days after no reply — different value angle + demo link |
-| **Meeting Confirmation** | When lead replies interested — Calendly booking link |
+1. Go to [railway.app](https://railway.app) → **New Project → Deploy from GitHub** → select this repo
+2. Add environment variables in Railway's **Variables** tab (same as `.env`)
+3. Railway auto-deploys on every `git push` — your dashboard is live at the Railway URL
 
 ---
 
-## Target Leads
+## How Demo Pages Work
 
-By default the scout searches for:
+When Outreach Agent emails a lead, it:
+1. Generates a personalized HTML dashboard for their business (industry-matched: retail, real estate, SaaS, or generic)
+2. Saves it to `docs/demos/<company-slug>.html`
+3. Commits and pushes to GitHub — GitHub Pages serves it instantly
+4. Includes the link in the email with a "View Your Personalized Demo" button
 
-**LinkedIn:** CTOs, VPs of Engineering, Founders, Heads of Product at SaaS/CRM companies
-
-**Google Maps:** SaaS companies, software development firms, CRM vendors across Bangalore, Mumbai, Delhi, Hyderabad, Pune
-
-Customize search queries in [`agents/scout_agent.py`](agents/scout_agent.py) — `LINKEDIN_SEARCH_QUERIES` and `GOOGLE_MAPS_QUERIES`.
-
----
-
-## Important Notes
-
-- **Rate limits:** The pipeline sends max 20 emails per run by default. Increase `batch_size` in `main.py` carefully to avoid Gmail spam flags.
-- **Unsubscribes:** Every email includes an unsubscribe instruction. The Sales Agent honors these automatically.
-- **Email warmup:** If using a new Gmail account, warm it up gradually (5 → 10 → 20 emails/day) before running at full volume.
-- **LinkedIn ToS:** Apify scrapers are compliant with LinkedIn's public data policy. Do not scrape private/gated profile data.
+When a lead replies with interest, Sales Agent regenerates a richer version and re-sends it.
 
 ---
 
-## License
+## No AI API Required
 
-MIT
+All personalization is rule-based — no OpenAI or Anthropic API key needed:
+- Email openers matched by job title keywords
+- Pain points matched by industry keywords
+- Reply intent classified by keyword matching (interested / unsubscribe / question / auto-reply)
+
+---
+
+## Security
+
+- `.env` is gitignored — never committed
+- `gmail_credentials.json` and `gmail_token.json` are gitignored
+- Apify token stored in `.env` only
+
+---
+
+## Built by
+
+**Sayan Choudhury** — [Code Visionary Services](https://codevisionaryservices.com)
+`sayan@codevisionaryservices.com`

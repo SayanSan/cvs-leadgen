@@ -16,7 +16,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS leads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            email TEXT UNIQUE,
+            email TEXT,
             company TEXT,
             title TEXT,
             linkedin_url TEXT,
@@ -34,7 +34,8 @@ def init_db():
             follow_up_count INTEGER DEFAULT 0,
             notes TEXT,
             raw_data TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(company, phone)
         )
     """)
     conn.execute("""
@@ -62,14 +63,15 @@ def upsert_lead(lead: dict) -> int:
             industry, company_size, location, phone, website, raw_data)
         VALUES (:name, :email, :company, :title, :linkedin_url, :source,
             :industry, :company_size, :location, :phone, :website, :raw_data)
-        ON CONFLICT(email) DO UPDATE SET
+        ON CONFLICT(company, phone) DO UPDATE SET
             name = excluded.name,
-            company = excluded.company,
+            email = COALESCE(excluded.email, leads.email),
             title = excluded.title,
             linkedin_url = excluded.linkedin_url,
             industry = excluded.industry,
             company_size = excluded.company_size,
-            location = excluded.location
+            location = excluded.location,
+            website = COALESCE(excluded.website, leads.website)
         """,
         {
             "name": lead.get("name", ""),
