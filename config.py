@@ -19,9 +19,6 @@ class Config:
     CALENDLY_API_KEY: str = os.getenv("CALENDLY_API_KEY", "")
     CALENDLY_MEETING_LINK: str = os.getenv("CALENDLY_MEETING_LINK", "")
 
-    # Anthropic Claude for AI personalization
-    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
-
     # SQLite DB path
     DB_PATH: str = os.getenv("DB_PATH", "data/leads.db")
 

@@ -1,16 +1,10 @@
 """
 Outreach Agent — personalizes and sends emails to new leads.
-
-Responsibilities:
-  1. Fetch 'new' leads with email addresses from DB
-  2. Use Claude to generate a personalized opener + pain point for each lead
-  3. Send the initial outreach email via Gmail
-  4. Update lead status to 'emailed'
-  5. Retry follow-ups for leads who haven't replied after 3 days
+No AI API required — uses rule-based personalization from lead data.
 """
 
 import logging
-import anthropic
+import random
 from datetime import datetime
 
 from tools.db_tools import (
@@ -24,74 +18,90 @@ from templates.emails import initial_outreach, follow_up
 from config import config
 
 logger = logging.getLogger(__name__)
-claude = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
 
-def _personalize_opener(lead: dict) -> tuple[str, str]:
-    """
-    Use Claude to generate a personalized opening line and pain point.
-    Returns (personalized_line, pain_point).
-    """
-    prompt = f"""You are a B2B sales copywriter for CVS, a company that builds custom CRMs and SaaS products.
+# Openers keyed by lead source / title keywords
+_OPENERS_BY_TITLE = [
+    ("founder",    "Building a company from scratch means your tools need to work as hard as you do — most off-the-shelf CRMs just don't cut it at that stage."),
+    ("cto",        "Engineering leaders at growing SaaS companies often tell us their biggest bottleneck isn't the product — it's the internal tooling holding the team back."),
+    ("vp",         "Scaling a sales or ops team is hard enough without fighting a CRM that wasn't built for how your team actually works."),
+    ("head",       "Teams at {company} stage often hit a wall where generic software stops fitting and custom builds start making sense."),
+    ("director",   "At the director level, you probably feel the gap between what your current tools do and what your team actually needs."),
+    ("manager",    "The best-run teams we work with all have one thing in common — their CRM fits their workflow, not the other way around."),
+    ("owner",      "{company} caught our eye — businesses at your stage often find the biggest unlock is getting their customer data and workflow in one place."),
+]
 
-Write a hyper-personalized cold email opener (1-2 sentences max) for this lead:
-- Name: {lead['name']}
-- Title: {lead['title']}
-- Company: {lead['company']}
-- Industry: {lead['industry']}
-- Location: {lead['location']}
-- Source: {lead['source']}
+_OPENERS_DEFAULT = [
+    "Came across {company} and thought what you're building in the {industry} space is exactly the kind of work we love helping scale.",
+    "Teams like {company} are exactly who we built our CRM and SaaS development practice for.",
+    "{company}'s growth in the {industry} space is impressive — wanted to reach out directly.",
+]
 
-Also suggest a specific pain point (3-5 words, e.g. "scaling your CRM integrations") relevant to their role.
+_PAIN_POINTS_BY_INDUSTRY = {
+    "saas":        "managing customer lifecycle at scale",
+    "crm":         "replacing spreadsheets with a CRM that fits your sales motion",
+    "software":    "cutting development time without cutting quality",
+    "tech":        "building internal tools your team will actually use",
+    "ecommerce":   "unifying your customer data across channels",
+    "retail":      "connecting your POS and customer data in one place",
+    "healthcare":  "managing patient workflows without expensive off-the-shelf software",
+    "finance":     "automating your client reporting and onboarding workflows",
+    "real estate": "tracking your pipeline from lead to close without juggling spreadsheets",
+}
 
-Respond in this exact JSON format:
-{{
-  "opener": "Your personalized opening line here.",
-  "pain_point": "their specific pain point"
-}}
+_PAIN_POINTS_DEFAULT = [
+    "streamlining your CRM and client workflows",
+    "reducing manual work across your sales and ops team",
+    "building software that fits your process — not the other way around",
+    "getting your customer data out of spreadsheets",
+]
 
-Rules:
-- The opener must NOT start with "I" or "We"
-- Reference something specific about their role or company
-- Sound human, not salesy
-- No emojis"""
+_FOLLOWUP_VALUE_PROPS = [
+    "Companies at {company}'s stage typically save 10+ hours a week once their CRM fits their actual workflow.",
+    "Most teams we work with see a 40% drop in manual data entry within the first month of going custom.",
+    "A 15-minute call is often all it takes to figure out if a custom build makes sense for where {company} is headed.",
+    "We recently helped a SaaS company very similar to {company} cut their CRM costs by 55% while shipping 3x faster.",
+    "The difference between a CRM you bought and one built for you is usually about 6 weeks of dev time — worth a conversation.",
+]
 
-    response = claude.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
 
-    import json
-    try:
-        data = json.loads(response.content[0].text)
-        return data["opener"], data["pain_point"]
-    except Exception:
-        return (
-            f"Noticed {lead['company']} is doing some interesting work in the {lead['industry']} space.",
-            "streamlining your CRM workflow",
-        )
+def _get_opener(lead: dict) -> str:
+    title = (lead.get("title") or "").lower()
+    company = lead.get("company") or "your company"
+    industry = (lead.get("industry") or "").lower()
+
+    for keyword, opener in _OPENERS_BY_TITLE:
+        if keyword in title:
+            return opener.format(company=company, industry=industry)
+
+    return random.choice(_OPENERS_DEFAULT).format(company=company, industry=industry)
+
+
+def _get_pain_point(lead: dict) -> str:
+    industry = (lead.get("industry") or "").lower()
+    for keyword, pain in _PAIN_POINTS_BY_INDUSTRY.items():
+        if keyword in industry:
+            return pain
+    return random.choice(_PAIN_POINTS_DEFAULT)
+
+
+def _get_followup_value_prop(lead: dict) -> str:
+    company = lead.get("company") or "your company"
+    return random.choice(_FOLLOWUP_VALUE_PROPS).format(company=company)
 
 
 def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
-    """
-    Send initial outreach emails to new leads with email addresses.
-    Returns summary dict.
-    """
     leads = get_leads_by_status("new")
-    # Only process leads that have emails
     leads = [l for l in leads if l.get("email")][:batch_size]
 
-    sent = 0
-    skipped = 0
-    failed = 0
-
+    sent = skipped = failed = 0
     logger.info(f"Outreach Agent: {len(leads)} new leads to contact")
 
     for lead in leads:
         try:
             first_name = (lead["name"] or "").split()[0] if lead.get("name") else "there"
-            opener, pain_point = _personalize_opener(lead)
+            opener = _get_opener(lead)
+            pain_point = _get_pain_point(lead)
 
             subject, html_body = initial_outreach(
                 first_name=first_name,
@@ -103,6 +113,7 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
 
             if dry_run:
                 logger.info(f"[DRY RUN] Would email {lead['email']} — Subject: {subject}")
+                logger.info(f"           Opener: {opener}")
                 sent += 1
                 continue
 
@@ -113,13 +124,9 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
                 html_body=html_body,
             )
 
-            update_lead_status(
-                lead["id"],
-                "emailed",
-                email_sent_at=datetime.utcnow().isoformat(),
-            )
+            update_lead_status(lead["id"], "emailed", email_sent_at=datetime.utcnow().isoformat())
             log_email(lead["id"], msg_id, subject, html_body, "initial_outreach")
-            logger.info(f"  Emailed {lead['email']} ({lead['company']}) — msg_id: {msg_id}")
+            logger.info(f"  Emailed {lead['email']} ({lead['company']})")
             sent += 1
 
         except Exception as e:
@@ -132,30 +139,14 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
 
 
 def run_followups(dry_run: bool = False) -> dict:
-    """
-    Send follow-up emails to leads who haven't replied in 3 days.
-    """
     leads = get_leads_awaiting_followup(days_since_email=3)
-    sent = 0
-    failed = 0
-
+    sent = failed = 0
     logger.info(f"Follow-up Agent: {len(leads)} leads need follow-up")
 
     for lead in leads:
         try:
             first_name = (lead["name"] or "").split()[0] if lead.get("name") else "there"
-
-            # Generate a different value prop angle for follow-up
-            response = claude.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=100,
-                messages=[{
-                    "role": "user",
-                    "content": f"Write 1 sentence (max 20 words) re-engaging {first_name} at {lead['company']} "
-                               f"({lead['title']}) about custom CRM/SaaS development. Start with an insight, not 'I'."
-                }],
-            )
-            value_prop = response.content[0].text.strip()
+            value_prop = _get_followup_value_prop(lead)
 
             subject, html_body = follow_up(
                 first_name=first_name,
@@ -177,8 +168,7 @@ def run_followups(dry_run: bool = False) -> dict:
             )
 
             update_lead_status(
-                lead["id"],
-                "emailed",
+                lead["id"], "emailed",
                 email_sent_at=datetime.utcnow().isoformat(),
                 follow_up_count=lead["follow_up_count"] + 1,
             )
@@ -190,9 +180,7 @@ def run_followups(dry_run: bool = False) -> dict:
             logger.error(f"  Follow-up failed for {lead.get('email')}: {e}")
             failed += 1
 
-    summary = {"sent": sent, "failed": failed}
-    logger.info(f"Follow-up Agent complete: {summary}")
-    return summary
+    return {"sent": sent, "failed": failed}
 
 
 if __name__ == "__main__":
