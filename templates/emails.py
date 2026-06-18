@@ -1,6 +1,5 @@
 """
 Email templates for CVS lead generation.
-All templates are personalized by the Outreach Agent using Claude.
 """
 
 from config import config
@@ -10,39 +9,56 @@ def initial_outreach(
     first_name: str,
     company: str,
     title: str,
-    pain_point: str,  # AI-generated, specific to their company
-    personalized_line: str,  # AI-generated opener
+    pain_point: str,
+    personalized_line: str,
+    demo_url: str = "",
 ) -> tuple[str, str]:
     """Returns (subject, html_body)."""
-    subject = f"Quick question about {company}'s {pain_point}"
+    subject = f"I built a demo CRM for {company} — take a look"
+
+    demo_block = ""
+    if demo_url:
+        demo_block = f"""
+<p style="margin: 20px 0;">
+  <a href="{demo_url}"
+     style="background: #0066ff; color: white; padding: 12px 22px;
+     border-radius: 6px; text-decoration: none; font-size: 15px;
+     display: inline-block; font-weight: 600;">
+    👁 View Your Personalized Demo →
+  </a>
+</p>
+<p style="font-size: 13px; color: #888;">
+  (Built specifically for {company} — takes 30 seconds to explore)
+</p>"""
+
     html = f"""
-<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
+<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
 <p>Hi {first_name},</p>
 
 <p>{personalized_line}</p>
 
-<p>I'm reaching out because we've been helping <strong>B2B SaaS companies and teams building custom CRMs</strong>
-cut their development time by 40-60% — without sacrificing quality or flexibility.</p>
+<p>I put together a quick interactive preview of what a custom CRM built specifically
+for <strong>{company}</strong> could look like — based on your industry and how companies like yours typically work:</p>
 
-<p>At <strong>{config.COMPANY_NAME}</strong>, we specialize in:</p>
+{demo_block}
+
+<p>At <strong>{config.COMPANY_NAME}</strong>, we build custom CRMs and SaaS products for B2B teams —
+the kind that actually fit how your team works, not the other way around.</p>
+
+<p>A few things we handle:</p>
 <ul>
-  <li>✅ Custom CRM development tailored to your sales workflow</li>
-  <li>✅ SaaS product development from MVP to scale</li>
-  <li>✅ Integrations (Salesforce, HubSpot, Pipedrive, and custom APIs)</li>
+  <li>Custom CRM tailored to your sales workflow</li>
+  <li>SaaS product development — MVP to scale</li>
+  <li>Integrations with your existing tools</li>
 </ul>
 
-<p>I'd love to show you what we've built for similar companies —
-<a href="{config.COMPANY_PORTFOLIO_URL}" style="color: #4F46E5;">see our portfolio here</a>.</p>
-
-<p>Would a <strong>15-minute demo call</strong> this week make sense?
-<a href="{config.CALENDLY_MEETING_LINK}" style="background: #4F46E5; color: white; padding: 8px 16px;
-border-radius: 4px; text-decoration: none; display: inline-block; margin-top: 8px;">
-→ Book a time here</a></p>
+<p>Would a <strong>15-minute call</strong> this week make sense?<br>
+<a href="{config.CALENDLY_MEETING_LINK}" style="color: #0066ff;">Grab a slot here →</a></p>
 
 <p>Best,<br>
 <strong>{config.SENDER_NAME}</strong><br>
 {config.COMPANY_NAME}<br>
-<a href="{config.COMPANY_WEBSITE}">{config.COMPANY_WEBSITE}</a></p>
+<a href="{config.COMPANY_PORTFOLIO_URL}" style="color: #0066ff;">Portfolio</a></p>
 
 <p style="font-size: 11px; color: #999;">
 If this isn't relevant, just reply "unsubscribe" and I won't reach out again.
@@ -90,31 +106,44 @@ while shipping 3x faster. I think we could do the same for your team.</p>
 def meeting_confirmation(
     first_name: str,
     company: str,
+    demo_url: str = "",
 ) -> tuple[str, str]:
     """Returns (subject, html_body) for post-reply meeting booking email."""
-    subject = f"Let's connect, {first_name} — here's my calendar"
+    subject = f"Let's connect, {first_name} — here's your {company} demo + my calendar"
+
+    demo_block = ""
+    if demo_url:
+        demo_block = f"""
+<p>I also refreshed the personalized demo I built for {company} — take a look before our call:</p>
+<p style="margin: 16px 0;">
+  <a href="{demo_url}"
+     style="background: #0066ff; color: white; padding: 11px 22px;
+     border-radius: 6px; text-decoration: none; font-size: 14px;
+     display: inline-block; font-weight: 600;">
+    👁 View {company}'s Custom Demo →
+  </a>
+</p>"""
+
     html = f"""
-<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
+<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
 <p>Hi {first_name},</p>
 
 <p>Thanks for getting back to me! I'd love to learn more about {company}
-and share how {config.COMPANY_NAME} might be able to help.</p>
+and show you concretely what we'd build.</p>
 
-<p>Feel free to grab any 15 or 30-minute slot that works for you:</p>
+{demo_block}
 
-<p style="text-align: center; margin: 24px 0;">
+<p>Grab any slot that works for you:</p>
+
+<p style="margin: 20px 0;">
 <a href="{config.CALENDLY_MEETING_LINK}"
-   style="background: #4F46E5; color: white; padding: 12px 24px;
-   border-radius: 6px; text-decoration: none; font-size: 16px; display: inline-block;">
-📅 Book a Meeting
+   style="background: #16a34a; color: white; padding: 12px 24px;
+   border-radius: 6px; text-decoration: none; font-size: 15px; display: inline-block; font-weight: 600;">
+📅 Book a 20-Min Strategy Call
 </a></p>
 
-<p>Before our call, here are a few resources that might be useful:</p>
-<ul>
-  <li><a href="{config.COMPANY_PORTFOLIO_URL}" style="color: #4F46E5;">Our Portfolio</a> — recent CRM & SaaS projects</li>
-  <li><a href="{config.COMPANY_DEMO_URL}" style="color: #4F46E5;">Product Demo</a> — 2-minute walkthrough</li>
-  <li><a href="{config.COMPANY_WEBSITE}" style="color: #4F46E5;">About {config.COMPANY_NAME}</a></li>
-</ul>
+<p>Also check out <a href="{config.COMPANY_PORTFOLIO_URL}" style="color: #0066ff;">our portfolio</a>
+for recent CRM and SaaS projects.</p>
 
 <p>Looking forward to talking!</p>
 

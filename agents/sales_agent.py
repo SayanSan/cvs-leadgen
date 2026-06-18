@@ -10,6 +10,7 @@ from tools.db_tools import update_lead_status, get_db
 from tools.gmail_tools import check_for_replies, send_email, mark_as_read
 from tools.calendly_tools import get_scheduled_events, get_event_invitees
 from templates.emails import meeting_confirmation
+from templates.demo_pages import generate_demo, publish_demos
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -132,18 +133,25 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
         elif intent in ("interested", "question"):
             first_name = (lead["name"] or "").split()[0] or "there"
 
+            # Generate / refresh their personalized demo
+            demo_url = generate_demo(lead)
+            logger.info(f"    Demo URL: {demo_url}")
+
             if intent == "interested":
-                subject, html_body = meeting_confirmation(first_name, lead["company"])
+                subject, html_body = meeting_confirmation(first_name, lead["company"], demo_url=demo_url)
             else:
                 subject = f"Re: {reply['subject']}"
                 html_body = f"""
 <html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
 <p>Hi {first_name},</p>
 <p>{draft_answer}</p>
+<p>Also — I put together a personalized demo dashboard for {lead['company']} so you can see concretely what we'd build:<br>
+<a href="{demo_url}" style="color: #0066ff; font-weight: 600;">View {lead['company']}'s Demo →</a></p>
 <p>Best,<br><strong>{config.SENDER_NAME}</strong><br>{config.COMPANY_NAME}</p>
 </body></html>"""
 
             if not dry_run:
+                publish_demos()
                 send_email(
                     to_email=lead["email"],
                     to_name=lead["name"] or "",
@@ -154,7 +162,7 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
                                    last_reply_at=datetime.utcnow().isoformat())
                 mark_as_read(reply["message_id"])
             else:
-                logger.info(f"    [DRY RUN] Would send {intent} response to {from_email}")
+                logger.info(f"    [DRY RUN] Would send {intent} response to {from_email} with demo {demo_url}")
 
             meetings_requested += 1
 

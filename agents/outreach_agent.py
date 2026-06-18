@@ -15,6 +15,7 @@ from tools.db_tools import (
 )
 from tools.gmail_tools import send_email
 from templates.emails import initial_outreach, follow_up
+from templates.demo_pages import generate_demo, publish_demos
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,7 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
     leads = [l for l in leads if l.get("email")][:batch_size]
 
     sent = skipped = failed = 0
+    demos_generated = 0
     logger.info(f"Outreach Agent: {len(leads)} new leads to contact")
 
     for lead in leads:
@@ -103,17 +105,23 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
             opener = _get_opener(lead)
             pain_point = _get_pain_point(lead)
 
+            # Generate personalized demo page
+            demo_url = generate_demo(lead)
+            demos_generated += 1
+            logger.info(f"  Demo generated for {lead['company']}: {demo_url}")
+
             subject, html_body = initial_outreach(
                 first_name=first_name,
                 company=lead["company"] or "your company",
                 title=lead["title"] or "",
                 pain_point=pain_point,
                 personalized_line=opener,
+                demo_url=demo_url,
             )
 
             if dry_run:
                 logger.info(f"[DRY RUN] Would email {lead['email']} — Subject: {subject}")
-                logger.info(f"           Opener: {opener}")
+                logger.info(f"           Demo: {demo_url}")
                 sent += 1
                 continue
 
@@ -133,7 +141,11 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
             logger.error(f"  Failed to email {lead.get('email')}: {e}")
             failed += 1
 
-    summary = {"sent": sent, "skipped": skipped, "failed": failed}
+    # Push all newly generated demos to GitHub Pages in one batch commit
+    if demos_generated > 0 and not dry_run:
+        publish_demos()
+
+    summary = {"sent": sent, "skipped": skipped, "failed": failed, "demos": demos_generated}
     logger.info(f"Outreach Agent complete: {summary}")
     return summary
 
