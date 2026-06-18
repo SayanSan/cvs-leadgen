@@ -61,32 +61,37 @@ def scrape_google_maps(
 def scrape_linkedin_people(
     keywords: str,
     location: str = "",
-    max_results: int = 50,
+    max_results: int = 20,
 ) -> list[dict]:
     """
-    Search LinkedIn for people matching keywords (e.g. 'CTO SaaS startup').
+    Search LinkedIn for people using actor M2FMdjRVeF1HPGFcc.
     Returns normalized lead dicts.
     """
     raw = _run_actor(
-        "harvestapi/linkedin-profile-scraper",
+        "M2FMdjRVeF1HPGFcc",
         {
-            "searchTerms": [keywords],
-            "location": location,
-            "maxResults": max_results,
+            "profileScraperMode": "Full",
+            "searchQuery": keywords,
+            "maxItems": max_results,
+            "locations": [location] if location else None,
+            "startPage": 1,
         },
     )
     leads = []
     for item in raw:
+        # Actor returns nested experience/position data
+        positions = item.get("positions") or item.get("experience") or []
+        current = positions[0] if positions else {}
         leads.append({
             "name": item.get("fullName") or item.get("name", ""),
-            "title": item.get("headline") or item.get("title", ""),
-            "company": item.get("companyName") or item.get("company", ""),
-            "location": item.get("location", ""),
-            "linkedin_url": item.get("profileUrl") or item.get("linkedinUrl", ""),
+            "title": item.get("headline") or current.get("title", ""),
+            "company": current.get("companyName") or item.get("companyName", ""),
+            "location": item.get("location") or item.get("geoLocation", ""),
+            "linkedin_url": item.get("profileUrl") or item.get("linkedInUrl", ""),
             "email": item.get("email", ""),
             "source": "linkedin",
             "industry": item.get("industry", ""),
-            "company_size": item.get("companySize", ""),
+            "company_size": item.get("companyHeadcount", ""),
         })
     return leads
 
