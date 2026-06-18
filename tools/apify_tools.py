@@ -43,8 +43,8 @@ def scrape_google_maps(
     leads = []
     for item in raw:
         leads.append({
-            "name": item.get("title", ""),
-            "company": item.get("title", ""),
+            "name": item.get("name", ""),
+            "company": item.get("name", ""),
             "title": "Business Owner",
             "email": item.get("email", ""),
             "phone": item.get("phone", ""),
@@ -52,7 +52,7 @@ def scrape_google_maps(
             "location": item.get("address", ""),
             "linkedin_url": "",
             "source": "google_maps",
-            "industry": query,
+            "industry": item.get("category", query),
             "company_size": "",
         })
     return leads
