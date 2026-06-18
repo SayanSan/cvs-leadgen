@@ -14,7 +14,7 @@ def initial_outreach(
     demo_url: str = "",
 ) -> tuple[str, str]:
     """Returns (subject, html_body)."""
-    subject = f"I built a demo CRM for {company} — take a look"
+    subject = f"I built a demo website/app mockup for {company} — take a look"
 
     demo_block = ""
     if demo_url:
@@ -42,14 +42,11 @@ for <strong>{company}</strong> could look like — based on your industry and ho
 
 {demo_block}
 
-<p>At <strong>{config.COMPANY_NAME}</strong>, we build custom CRMs and SaaS products for B2B teams —
-the kind that actually fit how your team works, not the other way around.</p>
-
-<p>A few things we handle:</p>
+<p>At <strong>{config.COMPANY_NAME}</strong>, we help businesses like yours get online, get found, and get more customers through:</p>
 <ul>
-  <li>Custom CRM tailored to your sales workflow</li>
-  <li>SaaS product development — MVP to scale</li>
-  <li>Integrations with your existing tools</li>
+  <li>Professional websites that generate leads 24/7</li>
+  <li>Mobile apps and web platforms built for your workflow</li>
+  <li>Digital marketing — SEO, Google Ads, social media campaigns</li>
 </ul>
 
 <p>Would a <strong>15-minute call</strong> this week make sense?<br>

@@ -1,11 +1,11 @@
 """
-Scout Agent — finds and stores leads from LinkedIn and Google Maps.
+Scout Agent — finds businesses that need websites, apps, and digital marketing.
 
-Responsibilities:
-  1. Search LinkedIn for decision-makers at B2B SaaS & CRM companies
-  2. Search Google Maps for tech companies in target locations
-  3. Deduplicate and store all leads in SQLite
-  4. Skip leads without email (they need manual enrichment or Hunter.io)
+Targets:
+  - Local businesses with no/weak web presence (restaurants, clinics, salons, etc.)
+  - Small businesses actively looking for digital services
+  - Startups and SMEs needing mobile apps or web platforms
+  - Businesses running offline with no digital marketing
 """
 
 import logging
@@ -15,63 +15,79 @@ from tools.db_tools import upsert_lead, init_db
 logger = logging.getLogger(__name__)
 
 
-LINKEDIN_SEARCH_QUERIES = [
-    "CTO SaaS startup",
-    "VP Engineering custom CRM",
-    "Head of Product B2B software",
-    "Founder SaaS company",
-    "CTO software development company",
-    "Head of Sales Operations CRM",
-    "Director of Engineering startup",
+# ---------------------------------------------------------------------------
+# Google Maps — local businesses by category & city
+# These are businesses likely to need a website, app, or digital marketing.
+# ---------------------------------------------------------------------------
+GOOGLE_MAPS_QUERIES = [
+    # Businesses that rarely have good websites
+    ("restaurant",              "Kolkata"),
+    ("cafe",                    "Kolkata"),
+    ("clothing store",          "Kolkata"),
+    ("jewellery shop",          "Kolkata"),
+    ("hardware store",          "Kolkata"),
+    ("furniture store",         "Kolkata"),
+    ("pharmacy",                "Kolkata"),
+    ("gym fitness center",      "Kolkata"),
+    ("beauty salon",            "Kolkata"),
+    ("interior designer",       "Kolkata"),
+
+    # Service businesses that need lead-gen websites
+    ("CA chartered accountant", "Kolkata"),
+    ("lawyer law firm",         "Kolkata"),
+    ("real estate agent",       "Kolkata"),
+    ("travel agency",           "Kolkata"),
+    ("event management company","Kolkata"),
+    ("wedding planner",         "Kolkata"),
+    ("driving school",          "Kolkata"),
+    ("coaching institute",      "Kolkata"),
+    ("diagnostic centre",       "Kolkata"),
+    ("dentist clinic",          "Kolkata"),
+
+    # Small/mid businesses in other cities
+    ("restaurant",              "Mumbai"),
+    ("retail shop",             "Delhi"),
+    ("clothing boutique",       "Bangalore"),
+    ("beauty salon",            "Hyderabad"),
+    ("coaching institute",      "Pune"),
+    ("real estate agent",       "Chennai"),
+    ("event management company","Ahmedabad"),
+    ("restaurant",              "Jaipur"),
+    ("hotel",                   "Goa"),
+    ("travel agency",           "Kochi"),
 ]
 
-GOOGLE_MAPS_QUERIES = [
-    ("SaaS company", "Bangalore"),
-    ("software development company", "Mumbai"),
-    ("CRM software company", "Delhi"),
-    ("tech startup", "Hyderabad"),
-    ("software company", "Pune"),
+# ---------------------------------------------------------------------------
+# LinkedIn — decision-makers at small businesses and agencies
+# ---------------------------------------------------------------------------
+LINKEDIN_SEARCH_QUERIES = [
+    "founder small business India website",
+    "owner restaurant India digital marketing",
+    "proprietor retail shop India",
+    "managing director SME India no website",
+    "founder startup India mobile app",
+    "owner clinic hospital India website",
+    "director school coaching India",
+    "founder ecommerce India",
+    "owner hotel hospitality India",
+    "managing director manufacturing India website",
 ]
 
 
 def run_scout(
     linkedin_queries: list[str] = None,
     google_queries: list[tuple] = None,
-    max_per_query: int = 30,
+    max_per_query: int = 20,
+    skip_linkedin: bool = False,
 ) -> dict:
-    """
-    Main entry point for the Scout Agent.
-    Returns summary of leads found.
-    """
     init_db()
 
     linkedin_queries = linkedin_queries or LINKEDIN_SEARCH_QUERIES
-    google_queries = google_queries or GOOGLE_MAPS_QUERIES
+    google_queries   = google_queries   or GOOGLE_MAPS_QUERIES
 
-    total_found = 0
-    total_with_email = 0
-    total_saved = 0
+    total_found = total_saved = total_with_email = 0
 
-    # --- LinkedIn People ---
-    logger.info(f"Starting LinkedIn scrape with {len(linkedin_queries)} queries")
-    for query in linkedin_queries:
-        try:
-            leads = scrape_linkedin_people(query, max_results=max_per_query)
-            logger.info(f"  [{query}] found {len(leads)} profiles")
-            for lead in leads:
-                total_found += 1
-                if lead.get("email"):
-                    total_with_email += 1
-                    upsert_lead(lead)
-                    total_saved += 1
-                else:
-                    # Store without email for later enrichment
-                    upsert_lead(lead)
-                    total_saved += 1
-        except Exception as e:
-            logger.error(f"LinkedIn scrape failed for '{query}': {e}")
-
-    # --- Google Maps ---
+    # --- Google Maps (primary source — highest signal for local biz) ---
     logger.info(f"Starting Google Maps scrape with {len(google_queries)} queries")
     for query, location in google_queries:
         try:
@@ -79,12 +95,31 @@ def run_scout(
             logger.info(f"  [{query}, {location}] found {len(leads)} businesses")
             for lead in leads:
                 total_found += 1
+                # Tag the service need based on query keyword
+                lead["service_needed"] = _infer_service(query, lead)
                 if lead.get("email"):
                     total_with_email += 1
                 upsert_lead(lead)
                 total_saved += 1
         except Exception as e:
             logger.error(f"Google Maps scrape failed for '{query} {location}': {e}")
+
+    # --- LinkedIn (secondary — decision-maker contacts) ---
+    if not skip_linkedin:
+        logger.info(f"Starting LinkedIn scrape with {len(linkedin_queries)} queries")
+        for query in linkedin_queries:
+            try:
+                leads = scrape_linkedin_people(query, max_results=max_per_query)
+                logger.info(f"  [{query}] found {len(leads)} profiles")
+                for lead in leads:
+                    total_found += 1
+                    lead["service_needed"] = _infer_service(query, lead)
+                    if lead.get("email"):
+                        total_with_email += 1
+                    upsert_lead(lead)
+                    total_saved += 1
+            except Exception as e:
+                logger.error(f"LinkedIn scrape failed for '{query}': {e}")
 
     summary = {
         "total_found": total_found,
@@ -95,7 +130,58 @@ def run_scout(
     return summary
 
 
+# ---------------------------------------------------------------------------
+# Infer what service the lead likely needs
+# ---------------------------------------------------------------------------
+_SERVICE_MAP = {
+    # Needs a website
+    "restaurant": "website",
+    "cafe": "website",
+    "pharmacy": "website",
+    "clinic": "website",
+    "dentist": "website",
+    "diagnostic": "website",
+    "jewellery": "website",
+    "hardware": "website",
+    "furniture": "website",
+    "clothing": "website",
+    "boutique": "website",
+    "hotel": "website",
+    "driving school": "website",
+    "coaching": "website",
+
+    # Needs digital marketing
+    "retail": "digital_marketing",
+    "salon": "digital_marketing",
+    "beauty": "digital_marketing",
+    "gym": "digital_marketing",
+    "fitness": "digital_marketing",
+    "travel agency": "digital_marketing",
+    "wedding": "digital_marketing",
+    "event": "digital_marketing",
+
+    # Needs a web/mobile app
+    "real estate": "web_app",
+    "interior": "web_app",
+    "ca ": "web_app",
+    "chartered": "web_app",
+    "lawyer": "web_app",
+    "law firm": "web_app",
+    "ecommerce": "web_app",
+    "startup": "web_app",
+    "mobile app": "web_app",
+    "manufacturing": "web_app",
+}
+
+def _infer_service(query: str, lead: dict) -> str:
+    text = (query + " " + (lead.get("industry") or "") + " " + (lead.get("title") or "")).lower()
+    for keyword, service in _SERVICE_MAP.items():
+        if keyword in text:
+            return service
+    return "website"  # default — most businesses need a website first
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    result = run_scout(max_per_query=20)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s — %(message)s")
+    result = run_scout(max_per_query=15, skip_linkedin=True)
     print(f"\nScout done: {result}")

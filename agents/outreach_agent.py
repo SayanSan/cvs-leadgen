@@ -23,46 +23,64 @@ logger = logging.getLogger(__name__)
 
 # Openers keyed by lead source / title keywords
 _OPENERS_BY_TITLE = [
-    ("founder",    "Building a company from scratch means your tools need to work as hard as you do — most off-the-shelf CRMs just don't cut it at that stage."),
-    ("cto",        "Engineering leaders at growing SaaS companies often tell us their biggest bottleneck isn't the product — it's the internal tooling holding the team back."),
-    ("vp",         "Scaling a sales or ops team is hard enough without fighting a CRM that wasn't built for how your team actually works."),
-    ("head",       "Teams at {company} stage often hit a wall where generic software stops fitting and custom builds start making sense."),
-    ("director",   "At the director level, you probably feel the gap between what your current tools do and what your team actually needs."),
-    ("manager",    "The best-run teams we work with all have one thing in common — their CRM fits their workflow, not the other way around."),
-    ("owner",      "{company} caught our eye — businesses at your stage often find the biggest unlock is getting their customer data and workflow in one place."),
+    ("founder",    "Most businesses like {company} are still relying on word-of-mouth — a proper website can turn that into 24/7 lead generation."),
+    ("owner",      "Came across {company} and noticed most businesses in your space are leaving a lot of leads on the table without a strong online presence."),
+    ("proprietor", "{company} caught my eye — customers are searching online before they walk in, and a great website is often what converts them."),
+    ("director",   "At your scale, {company} deserves a digital presence that actually brings in business — not just a page that exists."),
+    ("manager",    "The best local businesses we work with all say the same thing — their website became their best salesperson."),
+    ("head",       "We've helped several businesses in the {industry} space turn their website into a real growth channel."),
+    ("cto",        "If {company} is ready to move beyond spreadsheets and manual processes, a custom web or mobile app can completely change the game."),
 ]
 
 _OPENERS_DEFAULT = [
-    "Came across {company} and thought what you're building in the {industry} space is exactly the kind of work we love helping scale.",
-    "Teams like {company} are exactly who we built our CRM and SaaS development practice for.",
-    "{company}'s growth in the {industry} space is impressive — wanted to reach out directly.",
+    "Came across {company} while researching businesses in the {industry} space — you're doing interesting work and I think we can help you get more visibility online.",
+    "Businesses like {company} in the {industry} industry often have great products/services but struggle to get found online — that's exactly what we fix.",
+    "{company} showed up in our research and we think there's a real opportunity to grow your customer base with the right digital strategy.",
 ]
 
 _PAIN_POINTS_BY_INDUSTRY = {
-    "saas":        "managing customer lifecycle at scale",
-    "crm":         "replacing spreadsheets with a CRM that fits your sales motion",
-    "software":    "cutting development time without cutting quality",
-    "tech":        "building internal tools your team will actually use",
-    "ecommerce":   "unifying your customer data across channels",
-    "retail":      "connecting your POS and customer data in one place",
-    "healthcare":  "managing patient workflows without expensive off-the-shelf software",
-    "finance":     "automating your client reporting and onboarding workflows",
-    "real estate": "tracking your pipeline from lead to close without juggling spreadsheets",
+    "restaurant":     "getting found on Google and turning online searches into table bookings",
+    "cafe":           "building a loyal customer base online and driving repeat visits",
+    "retail":         "bringing your store online and reaching customers beyond your locality",
+    "clothing":       "showcasing your collection online and running digital campaigns that actually convert",
+    "jewellery":      "building an online presence that reflects the quality of your products",
+    "salon":          "getting discovered on Google Maps and booking appointments online",
+    "beauty":         "attracting new clients through Instagram, Google, and a proper booking website",
+    "gym":            "filling your membership slots with targeted digital ads and a conversion-focused website",
+    "fitness":        "growing your client base with online booking and social media marketing",
+    "clinic":         "helping patients find you online and book appointments without calling",
+    "dentist":        "getting more patients through Google search and a professional website",
+    "diagnostic":     "making it easy for patients to book tests online and find your services",
+    "real estate":    "generating qualified property leads online without relying entirely on referrals",
+    "interior":       "showcasing your portfolio online and attracting high-value clients through search",
+    "ca ":            "building trust with potential clients through a professional website and content",
+    "chartered":      "getting found by businesses looking for accounting services in your area",
+    "lawyer":         "turning your expertise into a lead-generating website that builds client trust",
+    "travel":         "booking more tours and packages through an online presence that sells 24/7",
+    "event":          "attracting more corporate clients through a strong portfolio website",
+    "wedding":        "getting discovered by couples on Google and Instagram when they're planning",
+    "coaching":       "enrolling more students online and reducing dependence on walk-ins",
+    "hotel":          "driving direct bookings and reducing dependence on OTA commissions",
+    "ecommerce":      "scaling your online sales with better SEO, ads, and a faster website",
+    "manufacturing":  "generating B2B leads online from buyers who are actively searching",
+    "hardware":       "reaching contractors and builders online before your competitors do",
+    "furniture":      "showcasing your catalogue online to reach customers across the city",
+    "pharmacy":       "getting found online when customers search for medicines and health products nearby",
 }
 
 _PAIN_POINTS_DEFAULT = [
-    "streamlining your CRM and client workflows",
-    "reducing manual work across your sales and ops team",
-    "building software that fits your process — not the other way around",
-    "getting your customer data out of spreadsheets",
+    "getting more customers through a strong online presence",
+    "being found by the right people on Google when they're ready to buy",
+    "turning your website into a real source of new business",
+    "running digital marketing that actually brings in leads — not just likes",
 ]
 
 _FOLLOWUP_VALUE_PROPS = [
-    "Companies at {company}'s stage typically save 10+ hours a week once their CRM fits their actual workflow.",
-    "Most teams we work with see a 40% drop in manual data entry within the first month of going custom.",
-    "A 15-minute call is often all it takes to figure out if a custom build makes sense for where {company} is headed.",
-    "We recently helped a SaaS company very similar to {company} cut their CRM costs by 55% while shipping 3x faster.",
-    "The difference between a CRM you bought and one built for you is usually about 6 weeks of dev time — worth a conversation.",
+    "Most businesses we work with see a 30-40% increase in enquiries within 60 days of launching a proper website.",
+    "A well-built website pays for itself in 3-6 months — after that, every lead it generates is free.",
+    "We recently helped a {company}-type business in your city go from zero online presence to 200+ monthly enquiries.",
+    "The businesses growing fastest in your space all have one thing in common — they invested early in their digital presence.",
+    "A 15-minute call is all it takes to figure out what's holding {company} back online and what a fix would cost.",
 ]
 
 

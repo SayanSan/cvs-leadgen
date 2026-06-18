@@ -330,12 +330,13 @@ def _generic_template(company: str, industry: str) -> str:
 
 def _pick_template(company: str, industry: str) -> str:
     ind = industry.lower()
-    if any(k in ind for k in ["saas", "software", "tech", "crm", "startup"]):
-        return _saas_template(company)
-    if any(k in ind for k in ["real estate", "realty", "property", "housing"]):
+    if any(k in ind for k in ["real estate", "realty", "property", "housing", "interior"]):
         return _realestate_template(company)
-    if any(k in ind for k in ["ecommerce", "e-commerce", "retail", "shop", "store"]):
+    if any(k in ind for k in ["ecommerce", "e-commerce", "retail", "shop", "store", "clothing", "jewellery", "furniture"]):
         return _ecommerce_template(company)
+    if any(k in ind for k in ["saas", "software", "tech", "crm", "startup", "app", "manufacturing", "ca", "lawyer"]):
+        return _saas_template(company)
+    # Default for local service businesses (restaurants, salons, clinics, etc.)
     return _generic_template(company, industry)
 
 
