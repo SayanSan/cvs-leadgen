@@ -22,6 +22,11 @@ class Config:
     CALENDLY_API_KEY: str = os.getenv("CALENDLY_API_KEY", "")
     CALENDLY_MEETING_LINK: str = os.getenv("CALENDLY_MEETING_LINK", "")
 
+    # NVIDIA NIM — LLM brain
+    NIM_API_KEY: str = os.getenv("NIM_API_KEY", "")
+    NIM_MODEL: str = os.getenv("NIM_MODEL", "meta/llama-3.3-70b-instruct")
+    NIM_BASE_URL: str = os.getenv("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
+
     # SQLite DB path
     DB_PATH: str = os.getenv("DB_PATH", "data/leads.db")
 

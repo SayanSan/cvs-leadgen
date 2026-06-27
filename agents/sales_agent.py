@@ -9,6 +9,7 @@ from datetime import datetime
 from tools.db_tools import update_lead_status, get_db
 from tools.gmail_tools import check_for_replies, send_email, mark_as_read
 from tools.calendly_tools import get_scheduled_events, get_event_invitees
+from tools.llm_tools import classify_reply as llm_classify_reply
 from templates.emails import meeting_confirmation
 from templates.demo_pages import generate_demo, publish_demos
 from config import config
@@ -111,8 +112,15 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
 
         logger.info(f"  Reply from {from_email} ({lead['company']}): {reply['snippet'][:80]}")
 
-        intent, draft_answer = _classify_reply(reply["snippet"])
-        logger.info(f"    → Intent: {intent}")
+        # Try LLM classification first, fall back to keyword matching
+        llm_result = llm_classify_reply(reply["snippet"], lead)
+        if llm_result:
+            intent = llm_result.get("intent", "question")
+            draft_answer = llm_result.get("draft", "")
+            logger.info(f"    → Intent (LLM): {intent}")
+        else:
+            intent, draft_answer = _classify_reply(reply["snippet"])
+            logger.info(f"    → Intent (rule-based): {intent}")
 
         if intent == "auto_reply":
             mark_as_read(reply["message_id"])

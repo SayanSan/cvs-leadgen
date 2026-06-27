@@ -14,6 +14,7 @@ from tools.db_tools import (
     get_leads_awaiting_followup,
 )
 from tools.gmail_tools import send_email
+from tools.llm_tools import personalize_email_opener, personalize_pain_point, draft_followup
 from templates.emails import initial_outreach, follow_up
 from templates.demo_pages import generate_demo, publish_demos
 from config import config
@@ -120,8 +121,9 @@ def run_outreach(batch_size: int = 20, dry_run: bool = False) -> dict:
     for lead in leads:
         try:
             first_name = (lead["name"] or "").split()[0] if lead.get("name") else "there"
-            opener = _get_opener(lead)
-            pain_point = _get_pain_point(lead)
+            # Try LLM first, fall back to rule-based
+            opener = personalize_email_opener(lead) or _get_opener(lead)
+            pain_point = personalize_pain_point(lead) or _get_pain_point(lead)
 
             # Generate personalized demo page
             demo_url = generate_demo(lead)
@@ -176,7 +178,7 @@ def run_followups(dry_run: bool = False) -> dict:
     for lead in leads:
         try:
             first_name = (lead["name"] or "").split()[0] if lead.get("name") else "there"
-            value_prop = _get_followup_value_prop(lead)
+            value_prop = draft_followup(lead, lead.get("follow_up_count", 0)) or _get_followup_value_prop(lead)
 
             subject, html_body = follow_up(
                 first_name=first_name,
