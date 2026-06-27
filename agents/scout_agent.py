@@ -10,7 +10,8 @@ Targets:
 
 import logging
 from tools.apify_tools import scrape_linkedin_people, scrape_google_maps, scrape_linkedin_companies
-from tools.db_tools import upsert_lead, init_db
+from tools.db_tools import upsert_lead, init_db, get_db
+from tools.enrich_tools import enrich_leads_with_emails
 
 logger = logging.getLogger(__name__)
 
@@ -121,10 +122,25 @@ def run_scout(
             except Exception as e:
                 logger.error(f"LinkedIn scrape failed for '{query}': {e}")
 
+    # Enrich leads that have a website but no email
+    logger.info("Enriching leads — scraping websites for contact emails...")
+    conn = get_db()
+    enriched = enrich_leads_with_emails(conn)
+    conn.close()
+    logger.info(f"  Enriched {enriched} leads with emails from their websites")
+
+    # Recount emails after enrichment
+    conn = get_db()
+    total_with_email = conn.execute(
+        "SELECT COUNT(*) FROM leads WHERE email != '' AND email IS NOT NULL"
+    ).fetchone()[0]
+    conn.close()
+
     summary = {
         "total_found": total_found,
         "total_with_email": total_with_email,
         "total_saved": total_saved,
+        "enriched": enriched,
     }
     logger.info(f"Scout Agent complete: {summary}")
     return summary
