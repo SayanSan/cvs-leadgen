@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Artsy - Coffee & Culture — CRM Preview</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+.topbar { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+.topbar .logo { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+.topbar .logo span { color: #00d4ff; }
+.topbar .badge { background: #00d4ff; color: #000; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+.hero { background: #fff; padding: 40px 32px 32px; border-bottom: 1px solid #e8eaf0; }
+.hero h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+.hero h1 span { color: #0066ff; }
+.hero p { color: #666; font-size: 15px; max-width: 600px; }
+.hero .cta { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { padding: 11px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; display: inline-block; }
+.btn-primary { background: #0066ff; color: #fff; }
+.btn-secondary { background: #f0f2f5; color: #1a1a2e; border: 1px solid #dde1ea; }
+.dashboard { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 130px); }
+.sidebar { background: #fff; border-right: 1px solid #e8eaf0; padding: 24px 0; }
+.sidebar-section { padding: 8px 16px; font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 4px; }
+.sidebar-item { padding: 10px 20px; font-size: 14px; color: #555; cursor: pointer; display: flex; align-items: center; gap: 10px; border-radius: 0 8px 8px 0; margin-right: 12px; }
+.sidebar-item.active { background: #eff4ff; color: #0066ff; font-weight: 600; }
+.sidebar-item .icon { font-size: 16px; }
+.content { padding: 28px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e8eaf0; }
+.stat-label { font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+.stat-delta { font-size: 12px; color: #00b359; margin-top: 4px; }
+.panel { background: #fff; border-radius: 12px; border: 1px solid #e8eaf0; margin-bottom: 20px; }
+.panel-header { padding: 16px 20px; border-bottom: 1px solid #e8eaf0; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 15px; font-weight: 600; }
+.panel-body { padding: 0; }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; background: #f8f9fc; }
+td { padding: 13px 16px; font-size: 14px; border-top: 1px solid #f0f2f5; color: #333; }
+tr:hover td { background: #f8f9fc; }
+.badge-pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-green { background: #d4f5e2; color: #007a38; }
+.badge-blue { background: #ddeeff; color: #004ecc; }
+.badge-orange { background: #fff0db; color: #c45c00; }
+.badge-grey { background: #f0f2f5; color: #666; }
+.cta-footer { background: linear-gradient(135deg, #0066ff 0%, #0044cc 100%); color: #fff; padding: 36px 32px; text-align: center; }
+.cta-footer h2 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+.cta-footer p { opacity: 0.85; margin-bottom: 20px; font-size: 15px; }
+.cta-footer .btn { background: #fff; color: #0066ff; font-size: 15px; }
+.watermark { font-size: 12px; opacity: 0.6; margin-top: 12px; }
+</style></head><body>
+<div class="topbar">
+  <div class="logo">Artsy - Coffee & Culture <span>CRM</span></div>
+  <div class="badge">PREVIEW BUILD</div>
+</div>
+<div class="hero">
+  <h1>Welcome back, <span>Artsy - Coffee & Culture</span> Team 👋</h1>
+  <p>Your unified SaaS customer lifecycle dashboard — trials, conversions, churn risk, and MRR all in one place.</p>
+  <div class="cta">
+    <a href="https://calendly.com/sayan-codevisionaryservices/30min" class="btn btn-primary" target="_blank">Book a Call to Build This</a>
+    <a href="https://codevisionaryservices.com/portfolio" class="btn btn-secondary" target="_blank">See Our Work</a>
+  </div>
+</div>
+<div class="dashboard">
+  <div class="sidebar">
+    <div class="sidebar-section">Overview</div>
+    <div class="sidebar-item active"><span class="icon">📊</span> Dashboard</div>
+    <div class="sidebar-item"><span class="icon">👥</span> Customers</div>
+    <div class="sidebar-item"><span class="icon">🧪</span> Trials</div>
+    <div class="sidebar-section">Revenue</div>
+    <div class="sidebar-item"><span class="icon">💳</span> Subscriptions</div>
+    <div class="sidebar-item"><span class="icon">📈</span> MRR / ARR</div>
+    <div class="sidebar-item"><span class="icon">⚠️</span> Churn Risk</div>
+    <div class="sidebar-section">Support</div>
+    <div class="sidebar-item"><span class="icon">🎫</span> Tickets</div>
+    <div class="sidebar-item"><span class="icon">🔔</span> Alerts</div>
+  </div>
+  <div class="content">
+    <div class="stats">
+      <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value">$42,800</div><div class="stat-delta">↑ 12% this month</div></div>
+      <div class="stat-card"><div class="stat-label">Active Customers</div><div class="stat-value">318</div><div class="stat-delta">↑ 24 new this week</div></div>
+      <div class="stat-card"><div class="stat-label">Trial → Paid</div><div class="stat-value">68%</div><div class="stat-delta">↑ 5pts vs last month</div></div>
+      <div class="stat-card"><div class="stat-label">Churn Risk</div><div class="stat-value">9</div><div class="stat-delta" style="color:#e03">3 critical</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Active Trials → Conversion Pipeline</span><span class="badge-pill badge-blue">Live</span></div>
+      <div class="panel-body"><table>
+        <tr><th>Company</th><th>Trial Day</th><th>Usage</th><th>Last Active</th><th>Status</th></tr>
+        <tr><td>Acme Corp</td><td>Day 11</td><td>87%</td><td>Today</td><td><span class="badge-pill badge-green">Hot Lead</span></td></tr>
+        <tr><td>ByteWorks</td><td>Day 7</td><td>52%</td><td>Yesterday</td><td><span class="badge-pill badge-blue">On Track</span></td></tr>
+        <tr><td>NovaSoft</td><td>Day 13</td><td>21%</td><td>3 days ago</td><td><span class="badge-pill badge-orange">At Risk</span></td></tr>
+        <tr><td>CloudPeak</td><td>Day 2</td><td>95%</td><td>Today</td><td><span class="badge-pill badge-green">Hot Lead</span></td></tr>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Churn Risk Alerts</span></div>
+      <div class="panel-body"><table>
+        <tr><th>Customer</th><th>MRR</th><th>Signal</th><th>Days Inactive</th><th>Action</th></tr>
+        <tr><td>TechBase Inc</td><td>$1,200</td><td>Login drop</td><td>8</td><td><span class="badge-pill badge-orange">Email Sequence</span></td></tr>
+        <tr><td>Loop Analytics</td><td>$840</td><td>No API calls</td><td>12</td><td><span class="badge-pill badge-orange">CS Call</span></td></tr>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<div class="cta-footer">
+  <h2>Ready to build this for Artsy - Coffee & Culture?</h2>
+  <p>This is a preview of what a custom CRM built specifically for Artsy - Coffee & Culture could look like.<br>
+     Sayan at Code Visionary Services can have a working version live in 4–6 weeks.</p>
+  <a href="https://calendly.com/sayan-codevisionaryservices/30min" class="btn" target="_blank">Book a Free 20-Min Strategy Call</a>
+  <div class="watermark">Built with ❤ by Code Visionary Services · codevisionaryservices.com</div>
+</div>
+
+</body></html>
