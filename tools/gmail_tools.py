@@ -26,18 +26,37 @@ SCOPES = [
 
 def _get_service():
     creds = None
-    if os.path.exists(config.GMAIL_TOKEN_FILE):
+
+    # Support base64-encoded credentials from env vars (for Railway/cloud deployment)
+    token_b64 = os.getenv("GMAIL_TOKEN_B64", "")
+    creds_b64 = os.getenv("GMAIL_CREDENTIALS_B64", "")
+
+    if token_b64:
+        import json, tempfile
+        token_json = base64.b64decode(token_b64).decode()
+        creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+    elif os.path.exists(config.GMAIL_TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(config.GMAIL_TOKEN_FILE, SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+            # Persist refreshed token back to file if possible
+            if not token_b64 and os.path.exists(config.GMAIL_TOKEN_FILE):
+                with open(config.GMAIL_TOKEN_FILE, "w") as f:
+                    f.write(creds.to_json())
+        elif creds_b64:
+            import json
+            creds_json = json.loads(base64.b64decode(creds_b64).decode())
+            flow = InstalledAppFlow.from_client_config(creds_json, SCOPES)
+            creds = flow.run_local_server(port=0)
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 config.GMAIL_CREDENTIALS_FILE, SCOPES
             )
             creds = flow.run_local_server(port=0)
-        with open(config.GMAIL_TOKEN_FILE, "w") as f:
-            f.write(creds.to_json())
+            with open(config.GMAIL_TOKEN_FILE, "w") as f:
+                f.write(creds.to_json())
     return build("gmail", "v1", credentials=creds)
 
 
