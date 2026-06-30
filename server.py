@@ -73,17 +73,21 @@ _agent_logs: list[str] = []
 
 def _run_agent(agent_name: str, dry_run: bool = False):
     _agent_logs.clear()
-    cmd = [sys.executable, "main.py", agent_name]
+    cmd = [sys.executable, "-u", "main.py", agent_name]
     if dry_run:
         cmd.append("--dry-run")
     _agent_logs.append(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Starting {agent_name}...")
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True,
-            cwd=os.path.dirname(__file__), timeout=300
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, cwd=os.path.dirname(__file__), env=env
         )
-        for line in (result.stdout + result.stderr).splitlines():
-            _agent_logs.append(line)
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                _agent_logs.append(line)
+        proc.wait()
         _agent_logs.append(f"[{datetime.utcnow().strftime('%H:%M:%S')}] {agent_name} finished.")
     except Exception as e:
         _agent_logs.append(f"ERROR: {e}")
