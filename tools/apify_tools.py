@@ -15,7 +15,11 @@ client = ApifyClient(config.APIFY_API_TOKEN)
 
 def _run_actor(actor_id: str, run_input: dict) -> list[dict]:
     """Run an Apify actor and return all result items."""
-    run = client.actor(actor_id).call(run_input=run_input)
+    try:
+        run = client.actor(actor_id).call(run_input=run_input)
+    except TypeError:
+        # Older apify-client versions have a different signature
+        run = client.actor(actor_id).call(run_input)
     if not run or not run.get("defaultDatasetId"):
         return []
     return list(client.dataset(run["defaultDatasetId"]).iterate_items())
