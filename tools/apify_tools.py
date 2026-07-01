@@ -13,13 +13,13 @@ from config import config
 client = ApifyClient(config.APIFY_API_TOKEN)
 
 
-def _run_actor(actor_id: str, run_input: dict) -> list[dict]:
+def _run_actor(actor_id: str, run_input: dict, memory_mbytes: int = 1024) -> list[dict]:
     """
     Run an Apify actor and return all result items.
-    Uses start() + wait_for_finish() to avoid the log-streaming thread
-    that causes impit.TimeoutException on long-running Railway jobs.
+    Uses start() + wait_for_finish() to avoid the log-streaming thread timeout.
+    memory_mbytes kept low (1024) to stay within free plan limits.
     """
-    run = client.actor(actor_id).start(run_input=run_input)
+    run = client.actor(actor_id).start(run_input=run_input, memory_mbytes=memory_mbytes)
     run_id = run["id"]
     finished = client.run(run_id).wait_for_finish()
     if not finished or not finished.get("defaultDatasetId"):
@@ -72,16 +72,15 @@ def scrape_linkedin_people(
     Search LinkedIn for people using actor M2FMdjRVeF1HPGFcc.
     Returns normalized lead dicts.
     """
-    raw = _run_actor(
-        "M2FMdjRVeF1HPGFcc",
-        {
-            "profileScraperMode": "Full",
-            "searchQuery": keywords,
-            "maxItems": max_results,
-            "locations": [location] if location else None,
-            "startPage": 1,
-        },
-    )
+    run_input = {
+        "profileScraperMode": "Full",
+        "searchQuery": keywords,
+        "maxItems": max_results,
+        "startPage": 1,
+    }
+    if location:
+        run_input["locations"] = [location]
+    raw = _run_actor("M2FMdjRVeF1HPGFcc", run_input)
     leads = []
     for item in raw:
         # Actor returns nested experience/position data
