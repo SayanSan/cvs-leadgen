@@ -94,7 +94,11 @@ if __name__ == "__main__":
         print_dashboard()
     elif "scout" in args:
         from agents.scout_agent import run_scout
-        run_scout()
+        batch_offset = 0
+        if "--batch-offset" in args:
+            idx = args.index("--batch-offset")
+            batch_offset = int(args[idx + 1])
+        run_scout(batch_offset=batch_offset)
     elif "outreach" in args:
         from agents.outreach_agent import run_outreach, run_followups
         run_outreach(dry_run=dry_run)

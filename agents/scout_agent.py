@@ -94,12 +94,23 @@ def run_scout(
     google_queries: list[tuple] = None,
     max_per_query: int = 20,
     skip_linkedin: bool = False,
+    batch_size: int = 5,
+    batch_offset: int = 0,
 ) -> dict:
+    """
+    batch_size: how many Google Maps queries to run per call (default 5 ~5 mins)
+    batch_offset: start from this index in the query list (for pagination)
+    Run multiple times with increasing batch_offset to cover all queries.
+    """
     init_db()
 
     custom_google, custom_linkedin = _load_custom_queries()
     linkedin_queries = linkedin_queries or custom_linkedin or LINKEDIN_SEARCH_QUERIES
-    google_queries   = google_queries   or custom_google   or GOOGLE_MAPS_QUERIES
+    all_google       = google_queries   or custom_google   or GOOGLE_MAPS_QUERIES
+
+    # Slice to the current batch
+    google_queries = all_google[batch_offset: batch_offset + batch_size]
+    logger.info(f"Scout batch: queries {batch_offset+1}–{batch_offset+len(google_queries)} of {len(all_google)}")
 
     total_found = total_saved = total_with_email = 0
 

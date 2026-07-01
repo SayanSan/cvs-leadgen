@@ -13,16 +13,18 @@ from config import config
 client = ApifyClient(config.APIFY_API_TOKEN)
 
 
-def _run_actor(actor_id: str, run_input: dict) -> list[dict]:
+def _run_actor(actor_id: str, run_input: dict, timeout_secs: int = 300) -> list[dict]:
     """Run an Apify actor and return all result items."""
-    run = client.actor(actor_id).call(run_input=run_input)
+    run = client.actor(actor_id).call(run_input=run_input, timeout_secs=timeout_secs, wait_secs=timeout_secs)
+    if not run or not run.get("defaultDatasetId"):
+        return []
     return list(client.dataset(run["defaultDatasetId"]).iterate_items())
 
 
 def scrape_google_maps(
     query: str,
     location: str = "",
-    max_results: int = 50,
+    max_results: int = 20,
 ) -> list[dict]:
     """
     Scrape Google Maps businesses using actor AmqbKSb0W0EqqVBj6.
@@ -34,10 +36,7 @@ def scrape_google_maps(
         {
             "searchQueries": [search_term],
             "maxResults": max_results,
-            "proxyConfig": {
-                "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"],
-            },
+            "proxyConfig": {"useApifyProxy": True},
         },
     )
     leads = []

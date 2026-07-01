@@ -73,11 +73,13 @@ def get_leads(status: str = None, limit: int = 200) -> list[dict]:
 
 _agent_logs: list[str] = []
 
-def _run_agent(agent_name: str, dry_run: bool = False):
+def _run_agent(agent_name: str, dry_run: bool = False, batch_offset: int = 0):
     _agent_logs.clear()
     cmd = [sys.executable, "-u", "main.py", agent_name]
     if dry_run:
         cmd.append("--dry-run")
+    if agent_name == "scout" and batch_offset:
+        cmd += ["--batch-offset", str(batch_offset)]
     _agent_logs.append(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Starting {agent_name}...")
     try:
         env = {**os.environ, "PYTHONUNBUFFERED": "1"}
@@ -107,11 +109,11 @@ def api_leads(status: str = "all", limit: int = 200):
     return get_leads(status, limit)
 
 @app.post("/api/run/{agent_name}")
-def api_run_agent(agent_name: str, background_tasks: BackgroundTasks, dry_run: bool = False):
+def api_run_agent(agent_name: str, background_tasks: BackgroundTasks, dry_run: bool = False, batch_offset: int = 0):
     if agent_name not in ("scout", "outreach", "sales", "followups"):
         return JSONResponse({"error": "Unknown agent"}, status_code=400)
-    background_tasks.add_task(_run_agent, agent_name, dry_run)
-    return {"status": "started", "agent": agent_name}
+    background_tasks.add_task(_run_agent, agent_name, dry_run, batch_offset)
+    return {"status": "started", "agent": agent_name, "batch_offset": batch_offset}
 
 @app.get("/api/logs")
 def api_logs():
@@ -446,11 +448,16 @@ tr:hover td { background: #f8f9fc; }
       <div class="agent-grid">
         <div class="agent-card">
           <div class="agent-name">🔍 Scout Agent</div>
-          <div class="agent-desc">Scrapes LinkedIn and Google Maps for new leads based on your target industries and locations.</div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-primary" onclick="runAgent('scout')">Run Scout</button>
-            <button class="btn btn-outline btn-sm" onclick="runAgent('scout', true)">Dry Run</button>
+          <div class="agent-desc">Scrapes Google Maps for new leads — runs 5 queries per batch (~5 min each). Run batches in sequence to cover all queries.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <button class="btn btn-primary btn-sm" onclick="runScoutBatch(0)">Batch 1–5</button>
+            <button class="btn btn-primary btn-sm" onclick="runScoutBatch(5)">Batch 6–10</button>
+            <button class="btn btn-primary btn-sm" onclick="runScoutBatch(10)">Batch 11–15</button>
+            <button class="btn btn-primary btn-sm" onclick="runScoutBatch(15)">Batch 16–20</button>
+            <button class="btn btn-primary btn-sm" onclick="runScoutBatch(20)">Batch 21–25</button>
+            <button class="btn btn-primary btn-sm" onclick="runScoutBatch(25)">Batch 26–30</button>
           </div>
+          <button class="btn btn-outline btn-sm" onclick="runAgent('scout', true)">Dry Run</button>
         </div>
         <div class="agent-card">
           <div class="agent-name">📧 Outreach Agent</div>
@@ -640,6 +647,28 @@ function closeModal(e) {
 // ---------------------------------------------------------------------------
 // Agent runner
 // ---------------------------------------------------------------------------
+async function runScoutBatch(offset) {
+  if (agentRunning) { showToast('An agent is already running'); return; }
+  agentRunning = true;
+  showPage('agents');
+  document.getElementById('log-console').innerHTML = '';
+  showToast(`Starting Scout batch (queries ${offset+1}–${offset+5})...`);
+  await fetch(`/api/run/scout?batch_offset=${offset}`, { method: 'POST' });
+  logInterval = setInterval(async () => {
+    const data = await fetch('/api/logs').then(r => r.json());
+    const console_ = document.getElementById('log-console');
+    console_.innerHTML = data.logs.map(line => {
+      const cls = line.includes('ERROR') ? 'log-error' : line.includes('WARN') ? 'log-warn' : '';
+      return `<p class="log-line ${cls}">${line}</p>`;
+    }).join('');
+    console_.scrollTop = console_.scrollHeight;
+    if (data.logs.some(l => l.includes('finished'))) {
+      clearInterval(logInterval); agentRunning = false;
+      showToast('Scout batch finished'); loadStats(); loadLeads();
+    }
+  }, 1500);
+}
+
 async function runAgent(name, dryRun = false) {
   if (agentRunning) { showToast('An agent is already running'); return; }
   agentRunning = true;
