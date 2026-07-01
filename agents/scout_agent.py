@@ -8,12 +8,26 @@ Targets:
   - Businesses running offline with no digital marketing
 """
 
+import json
 import logging
+import os
 from tools.apify_tools import scrape_linkedin_people, scrape_google_maps, scrape_linkedin_companies
 from tools.db_tools import upsert_lead, init_db, get_db
 from tools.enrich_tools import enrich_leads_with_emails
 
 logger = logging.getLogger(__name__)
+
+_QUERIES_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "scout_queries.json")
+
+def _load_custom_queries():
+    """Load queries saved from the dashboard Settings page, if any."""
+    if os.path.exists(_QUERIES_FILE):
+        with open(_QUERIES_FILE) as f:
+            data = json.load(f)
+        google = [(row["query"], row["location"]) for row in data.get("google_maps", [])]
+        linkedin = data.get("linkedin", [])
+        return google or None, linkedin or None
+    return None, None
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +97,9 @@ def run_scout(
 ) -> dict:
     init_db()
 
-    linkedin_queries = linkedin_queries or LINKEDIN_SEARCH_QUERIES
-    google_queries   = google_queries   or GOOGLE_MAPS_QUERIES
+    custom_google, custom_linkedin = _load_custom_queries()
+    linkedin_queries = linkedin_queries or custom_linkedin or LINKEDIN_SEARCH_QUERIES
+    google_queries   = google_queries   or custom_google   or GOOGLE_MAPS_QUERIES
 
     total_found = total_saved = total_with_email = 0
 

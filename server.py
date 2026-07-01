@@ -3,6 +3,7 @@ CVS LeadGen — Web Dashboard
 FastAPI backend serving a full management UI.
 """
 
+import json
 import logging
 import subprocess
 import sys
@@ -14,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from tools.db_tools import get_db, init_db
+from agents.scout_agent import GOOGLE_MAPS_QUERIES, LINKEDIN_SEARCH_QUERIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -114,6 +116,45 @@ def api_run_agent(agent_name: str, background_tasks: BackgroundTasks, dry_run: b
 @app.get("/api/logs")
 def api_logs():
     return {"logs": list(_agent_logs)}
+
+# ---------------------------------------------------------------------------
+# Scout query config — persisted in data/scout_queries.json
+# ---------------------------------------------------------------------------
+
+_QUERIES_FILE = os.path.join(os.path.dirname(__file__), "data", "scout_queries.json")
+
+def _load_queries() -> dict:
+    if os.path.exists(_QUERIES_FILE):
+        with open(_QUERIES_FILE) as f:
+            return json.load(f)
+    return {
+        "google_maps": [{"query": q, "location": loc} for q, loc in GOOGLE_MAPS_QUERIES],
+        "linkedin": list(LINKEDIN_SEARCH_QUERIES),
+    }
+
+def _save_queries(data: dict):
+    os.makedirs(os.path.dirname(_QUERIES_FILE), exist_ok=True)
+    with open(_QUERIES_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+@app.get("/api/queries")
+def api_get_queries():
+    return _load_queries()
+
+@app.post("/api/queries")
+async def api_save_queries(request: Request):
+    data = await request.json()
+    _save_queries(data)
+    return {"status": "saved"}
+
+@app.post("/api/queries/reset")
+def api_reset_queries():
+    defaults = {
+        "google_maps": [{"query": q, "location": loc} for q, loc in GOOGLE_MAPS_QUERIES],
+        "linkedin": list(LINKEDIN_SEARCH_QUERIES),
+    }
+    _save_queries(defaults)
+    return defaults
 
 # ---------------------------------------------------------------------------
 # Main UI
@@ -266,6 +307,7 @@ tr:hover td { background: #f8f9fc; }
     <div class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> Dashboard</div>
     <div class="nav-item" onclick="showPage('leads')"><span class="icon">👥</span> Leads <span class="nav-badge" id="nav-total">—</span></div>
     <div class="nav-item" onclick="showPage('agents')"><span class="icon">🤖</span> Run Agents</div>
+    <div class="nav-item" onclick="showPage('settings')"><span class="icon">⚙️</span> Settings</div>
     <div class="nav-section">Pipeline</div>
     <div class="nav-item" onclick="showPage('leads'); filterLeads('new')"><span class="icon">🆕</span> New</div>
     <div class="nav-item" onclick="showPage('leads'); filterLeads('emailed')"><span class="icon">📧</span> Emailed</div>
@@ -359,6 +401,45 @@ tr:hover td { background: #f8f9fc; }
       </div>
     </div>
 
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <div class="page-title">Settings — Scout Queries</div>
+
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <span class="panel-title">Google Maps Queries</span>
+          <button class="btn btn-outline btn-sm" onclick="addGoogleRow()">+ Add Row</button>
+        </div>
+        <div style="padding:16px;">
+          <p style="font-size:13px;color:#888;margin-bottom:12px;">Each row is one search the Scout runs. <b>Query</b> = what to search, <b>Location</b> = which city.</p>
+          <table style="width:100%;border-collapse:collapse;" id="gmap-table">
+            <thead><tr>
+              <th style="text-align:left;padding:8px;font-size:11px;color:#999;text-transform:uppercase;">Query</th>
+              <th style="text-align:left;padding:8px;font-size:11px;color:#999;text-transform:uppercase;">Location</th>
+              <th style="width:40px;"></th>
+            </tr></thead>
+            <tbody id="gmap-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <span class="panel-title">LinkedIn Search Queries</span>
+          <button class="btn btn-outline btn-sm" onclick="addLinkedInRow()">+ Add Row</button>
+        </div>
+        <div style="padding:16px;">
+          <p style="font-size:13px;color:#888;margin-bottom:12px;">Each row is a LinkedIn people search query. Target decision-makers and business owners.</p>
+          <div id="linkedin-list"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:40px;">
+        <button class="btn btn-primary" onclick="saveQueries()">💾 Save Changes</button>
+        <button class="btn btn-outline" onclick="resetQueries()">↺ Reset to Defaults</button>
+      </div>
+    </div>
+
     <!-- AGENTS PAGE -->
     <div class="page" id="page-agents">
       <div class="page-title">Run Agents</div>
@@ -435,9 +516,10 @@ function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const navMap = {dashboard: 0, leads: 1, agents: 2};
+  const navMap = {dashboard: 0, leads: 1, agents: 2, settings: 3};
   if (navMap[name] !== undefined) document.querySelectorAll('.nav-item')[navMap[name]].classList.add('active');
   if (name === 'leads') loadLeads();
+  if (name === 'settings') loadSettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -599,6 +681,83 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ---------------------------------------------------------------------------
+// Settings — query editor
+// ---------------------------------------------------------------------------
+let _queries = { google_maps: [], linkedin: [] };
+
+async function loadSettings() {
+  _queries = await fetch('/api/queries').then(r => r.json());
+  renderGmapTable();
+  renderLinkedInList();
+}
+
+function renderGmapTable() {
+  const tbody = document.getElementById('gmap-body');
+  tbody.innerHTML = _queries.google_maps.map((row, i) => `
+    <tr>
+      <td style="padding:6px 8px;">
+        <input style="width:100%;padding:6px 10px;border:1px solid #dde1ea;border-radius:6px;font-size:13px;"
+          value="${row.query}" oninput="_queries.google_maps[${i}].query=this.value">
+      </td>
+      <td style="padding:6px 8px;">
+        <input style="width:100%;padding:6px 10px;border:1px solid #dde1ea;border-radius:6px;font-size:13px;"
+          value="${row.location}" oninput="_queries.google_maps[${i}].location=this.value">
+      </td>
+      <td style="padding:6px 4px;text-align:center;">
+        <button onclick="removeGmapRow(${i})" style="background:none;border:none;color:#cc0000;cursor:pointer;font-size:16px;">×</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderLinkedInList() {
+  const el = document.getElementById('linkedin-list');
+  el.innerHTML = _queries.linkedin.map((q, i) => `
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+      <input style="flex:1;padding:7px 12px;border:1px solid #dde1ea;border-radius:6px;font-size:13px;"
+        value="${q}" oninput="_queries.linkedin[${i}]=this.value">
+      <button onclick="removeLinkedInRow(${i})" style="background:none;border:none;color:#cc0000;cursor:pointer;font-size:18px;">×</button>
+    </div>`).join('');
+}
+
+function addGoogleRow() {
+  _queries.google_maps.push({ query: '', location: 'Kolkata' });
+  renderGmapTable();
+}
+
+function removeGmapRow(i) {
+  _queries.google_maps.splice(i, 1);
+  renderGmapTable();
+}
+
+function addLinkedInRow() {
+  _queries.linkedin.push('');
+  renderLinkedInList();
+}
+
+function removeLinkedInRow(i) {
+  _queries.linkedin.splice(i, 1);
+  renderLinkedInList();
+}
+
+async function saveQueries() {
+  await fetch('/api/queries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(_queries)
+  });
+  showToast('✅ Queries saved — Scout will use these next run');
+}
+
+async function resetQueries() {
+  if (!confirm('Reset all queries to defaults?')) return;
+  const res = await fetch('/api/queries/reset', { method: 'POST' });
+  _queries = await res.json();
+  renderGmapTable();
+  renderLinkedInList();
+  showToast('Queries reset to defaults');
 }
 
 // ---------------------------------------------------------------------------
