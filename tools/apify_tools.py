@@ -16,19 +16,14 @@ client = ApifyClient(config.APIFY_API_TOKEN)
 def _run_actor(actor_id: str, run_input: dict, memory_mbytes: int = 1024) -> list[dict]:
     """
     Run an Apify actor and return all result items.
-    Uses start() + wait_for_finish() to avoid the log-streaming thread timeout.
-    memory_mbytes kept low (1024) to stay within free plan limits.
+    Uses start() + wait_for_finish() — apify-client 3.x returns Run dataclass objects.
+    memory_mbytes=1024 to stay within free plan 16GB total limit.
     """
     run = client.actor(actor_id).start(run_input=run_input, memory_mbytes=memory_mbytes)
-    # Support both dict and object responses across apify-client versions
-    run_id = run["id"] if isinstance(run, dict) else run.id
-    finished = client.run(run_id).wait_for_finish()
-    if not finished:
+    finished = client.run(run.id).wait_for_finish()
+    if not finished or not finished.default_dataset_id:
         return []
-    dataset_id = finished["defaultDatasetId"] if isinstance(finished, dict) else finished.default_dataset_id
-    if not dataset_id:
-        return []
-    return list(client.dataset(dataset_id).iterate_items())
+    return list(client.dataset(finished.default_dataset_id).iterate_items())
 
 
 def scrape_google_maps(
