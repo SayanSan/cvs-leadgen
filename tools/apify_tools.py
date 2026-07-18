@@ -7,23 +7,41 @@ Actors used:
   - LinkedIn Company Search:  curious_coder/linkedin-company-search-scraper
 """
 
+import time
 from apify_client import ApifyClient
 from config import config
 
 client = ApifyClient(config.APIFY_API_TOKEN)
 
+_TERMINAL = {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}
 
-def _run_actor(actor_id: str, run_input: dict, memory_mbytes: int = 1024) -> list[dict]:
+
+def _run_actor(actor_id: str, run_input: dict, memory_mbytes: int = 1024, timeout: int = 300) -> list[dict]:
     """
     Run an Apify actor and return all result items.
-    Uses start() + wait_for_finish() — apify-client 3.x returns Run dataclass objects.
-    memory_mbytes=1024 to stay within free plan 16GB total limit.
+    Polls run status manually to avoid wait_for_finish() hanging indefinitely.
     """
     run = client.actor(actor_id).start(run_input=run_input, memory_mbytes=memory_mbytes)
-    finished = client.run(run.id).wait_for_finish()
-    if not finished or not finished.default_dataset_id:
+    run_id = run.id
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        info = client.run(run_id).get()
+        status = (info.get("status") if isinstance(info, dict) else getattr(info, "status", None)) or ""
+        if status in _TERMINAL:
+            break
+        time.sleep(10)
+    else:
+        # Timed out — abort the run and return whatever was collected so far
+        try:
+            client.run(run_id).abort()
+        except Exception:
+            pass
+
+    info = client.run(run_id).get()
+    dataset_id = info.get("defaultDatasetId") if isinstance(info, dict) else getattr(info, "default_dataset_id", None)
+    if not dataset_id:
         return []
-    return list(client.dataset(finished.default_dataset_id).iterate_items())
+    return list(client.dataset(dataset_id).iterate_items())
 
 
 def scrape_google_maps(
