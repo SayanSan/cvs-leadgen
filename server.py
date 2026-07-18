@@ -100,6 +100,11 @@ def _run_agent(agent_name: str, dry_run: bool = False, batch_offset: int = 0):
 # API routes
 # ---------------------------------------------------------------------------
 
+@app.get("/api/version")
+def api_version():
+    import apify_client
+    return {"apify_client": apify_client.__version__}
+
 @app.get("/api/stats")
 def api_stats():
     return get_stats()
