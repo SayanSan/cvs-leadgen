@@ -20,11 +20,15 @@ def _run_actor(actor_id: str, run_input: dict, memory_mbytes: int = 1024) -> lis
     memory_mbytes kept low (1024) to stay within free plan limits.
     """
     run = client.actor(actor_id).start(run_input=run_input, memory_mbytes=memory_mbytes)
-    run_id = run["id"]
+    # Support both dict and object responses across apify-client versions
+    run_id = run["id"] if isinstance(run, dict) else run.id
     finished = client.run(run_id).wait_for_finish()
-    if not finished or not finished.get("defaultDatasetId"):
+    if not finished:
         return []
-    return list(client.dataset(finished["defaultDatasetId"]).iterate_items())
+    dataset_id = finished["defaultDatasetId"] if isinstance(finished, dict) else finished.default_dataset_id
+    if not dataset_id:
+        return []
+    return list(client.dataset(dataset_id).iterate_items())
 
 
 def scrape_google_maps(
