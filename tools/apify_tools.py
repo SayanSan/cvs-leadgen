@@ -22,23 +22,23 @@ def _run_actor(actor_id: str, run_input: dict, memory_mbytes: int = 1024, timeou
     Polls run status manually to avoid wait_for_finish() hanging indefinitely.
     """
     run = client.actor(actor_id).start(run_input=run_input, memory_mbytes=memory_mbytes)
-    run_id = run.id
+    run_id = run["id"] if isinstance(run, dict) else run.id
+
     deadline = time.time() + timeout
     while time.time() < deadline:
         info = client.run(run_id).get()
-        status = (info.get("status") if isinstance(info, dict) else getattr(info, "status", None)) or ""
+        status = (info.get("status") if isinstance(info, dict) else getattr(info, "status", "")) or ""
         if status in _TERMINAL:
             break
         time.sleep(10)
     else:
-        # Timed out — abort the run and return whatever was collected so far
         try:
             client.run(run_id).abort()
         except Exception:
             pass
+        info = client.run(run_id).get()
 
-    info = client.run(run_id).get()
-    dataset_id = info.get("defaultDatasetId") if isinstance(info, dict) else getattr(info, "default_dataset_id", None)
+    dataset_id = (info.get("defaultDatasetId") if isinstance(info, dict) else getattr(info, "default_dataset_id", None))
     if not dataset_id:
         return []
     return list(client.dataset(dataset_id).iterate_items())

@@ -131,8 +131,8 @@ def run_scout(
         except Exception as e:
             logger.error(f"Google Maps scrape failed for '{query} {location}': {e}")
 
-    # --- LinkedIn (secondary — decision-maker contacts) ---
-    if not skip_linkedin:
+    # --- LinkedIn (secondary — skipped by default, actor returns no results on free plan) ---
+    if not skip_linkedin and False:
         logger.info(f"Starting LinkedIn scrape with {len(linkedin_queries)} queries")
         for query in linkedin_queries:
             try:
