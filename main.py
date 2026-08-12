@@ -104,8 +104,7 @@ if __name__ == "__main__":
         run_outreach(dry_run=dry_run)
         run_followups(dry_run=dry_run)
     elif "sales" in args:
-        from agents.sales_agent import run_reply_monitor, sync_calendly_bookings
+        from agents.sales_agent import run_reply_monitor
         run_reply_monitor(dry_run=dry_run)
-        sync_calendly_bookings(dry_run=dry_run)
     else:
         run_full_pipeline(dry_run=dry_run)

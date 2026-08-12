@@ -1,6 +1,6 @@
 """
-Sales Agent — monitors inbox for replies and books meetings.
-No AI API required — uses keyword-based reply classification.
+Sales Agent — monitors inbox for replies and responds with Calendly booking link.
+No Calendly API needed — just sends the meeting link and lets leads self-book.
 """
 
 import logging
@@ -8,9 +8,7 @@ from datetime import datetime
 
 from tools.db_tools import update_lead_status, get_db
 from tools.gmail_tools import check_for_replies, send_email, mark_as_read
-from tools.calendly_tools import get_scheduled_events, get_event_invitees
 from tools.llm_tools import classify_reply as llm_classify_reply
-from templates.emails import meeting_confirmation
 from templates.demo_pages import generate_demo, publish_demos
 from config import config
 
@@ -30,7 +28,7 @@ _NOT_INTERESTED_KEYWORDS = [
 
 _INTERESTED_KEYWORDS = [
     "interested", "tell me more", "sounds good", "let's talk", "let's chat",
-    "book a call", "schedule", "calendly", "set up a call", "when are you",
+    "book a call", "schedule", "set up a call", "when are you",
     "available", "yes", "sure", "would love to", "open to", "curious",
     "how does", "what's the", "can you share", "send me", "demo",
 ]
@@ -42,53 +40,51 @@ _AUTO_REPLY_KEYWORDS = [
 ]
 
 _QUESTION_ANSWERS = {
-    "price":      f"Our pricing depends on the scope of the project — most custom CRM builds start around $3,000-$8,000. Happy to give you a proper estimate on a quick call: {config.CALENDLY_MEETING_LINK}",
-    "cost":       f"Our pricing depends on the scope of the project — most custom CRM builds start around $3,000-$8,000. Happy to give you a proper estimate on a quick call: {config.CALENDLY_MEETING_LINK}",
-    "how long":   f"Most projects take 4-8 weeks from kickoff to launch, depending on complexity. We'd nail down the timeline on a discovery call: {config.CALENDLY_MEETING_LINK}",
-    "timeline":   f"Most projects take 4-8 weeks from kickoff to launch, depending on complexity. We'd nail down the timeline on a discovery call: {config.CALENDLY_MEETING_LINK}",
-    "portfolio":  f"Absolutely — you can see recent projects here: {config.COMPANY_PORTFOLIO_URL}. Happy to walk you through relevant case studies on a call too.",
-    "example":    f"You can see recent projects here: {config.COMPANY_PORTFOLIO_URL}. Happy to walk you through relevant case studies on a call too.",
-    "work":       f"We specialize in custom CRMs and SaaS products — everything from sales pipelines to client portals to internal ops tools. See examples: {config.COMPANY_PORTFOLIO_URL}",
-    "team":       "We're a small, senior team — every project is handled by experienced developers, no juniors or outsourcing.",
-    "tech":       "We build primarily in React, Node.js, Python, and PostgreSQL — but we adapt to whatever stack makes sense for your project.",
-    "stack":      "We build primarily in React, Node.js, Python, and PostgreSQL — but we adapt to whatever stack makes sense for your project.",
+    "price":     "Our pricing depends on the scope — most projects start around ₹50,000–₹2,00,000. Happy to give you a proper estimate on a quick call.",
+    "cost":      "Our pricing depends on the scope — most projects start around ₹50,000–₹2,00,000. Happy to give you a proper estimate on a quick call.",
+    "how long":  "Most projects take 2–6 weeks from kickoff to launch, depending on complexity.",
+    "timeline":  "Most projects take 2–6 weeks from kickoff to launch, depending on complexity.",
+    "portfolio": f"You can see recent projects here: {config.COMPANY_PORTFOLIO_URL}",
+    "example":   f"You can see recent projects here: {config.COMPANY_PORTFOLIO_URL}",
 }
 
 
-def _classify_reply(text: str) -> tuple[str, str]:
-    """
-    Classify reply intent using keyword matching.
-    Returns (intent, draft_answer).
-    Intent: 'interested' | 'not_interested' | 'question' | 'unsubscribe' | 'auto_reply'
-    """
+def _classify_reply(text: str) -> tuple:
     lower = text.lower()
-
     for kw in _AUTO_REPLY_KEYWORDS:
         if kw in lower:
             return "auto_reply", ""
-
     for kw in _UNSUBSCRIBE_KEYWORDS:
         if kw in lower:
             return "unsubscribe", ""
-
     for kw in _NOT_INTERESTED_KEYWORDS:
         if kw in lower:
             return "not_interested", ""
-
     for kw in _INTERESTED_KEYWORDS:
         if kw in lower:
             return "interested", ""
-
-    # Check for questions and return a canned answer
     for keyword, answer in _QUESTION_ANSWERS.items():
         if keyword in lower:
             return "question", answer
-
-    # Default: treat as a question if it ends with ? otherwise interested
     if "?" in text:
-        return "question", f"Great question! The best way to cover this properly is on a quick call — here's my calendar: {config.CALENDLY_MEETING_LINK}"
-
+        return "question", ""
     return "interested", ""
+
+
+def _build_reply_html(first_name: str, company: str, demo_url: str, body_text: str) -> str:
+    calendly = config.CALENDLY_MEETING_LINK
+    return f"""
+<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+<p>Hi {first_name},</p>
+{body_text}
+<p>I put together a personalized demo for <strong>{company}</strong> so you can see exactly what we'd build:<br>
+<a href="{demo_url}" style="color:#0066ff;font-weight:600;">View {company}'s Demo →</a></p>
+<p>The easiest next step is a quick 30-minute call — you can pick a time that works for you right here:<br>
+<a href="{calendly}" style="display:inline-block;margin-top:8px;padding:10px 20px;background:#0066ff;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">📅 Book a Free Call →</a></p>
+<p>Looking forward to speaking with you!</p>
+<p>Best,<br><strong>{config.SENDER_NAME}</strong><br>{config.COMPANY_NAME}<br>
+<a href="{config.COMPANY_WEBSITE}" style="color:#0066ff;">{config.COMPANY_WEBSITE}</a></p>
+</body></html>"""
 
 
 def run_reply_monitor(dry_run: bool = False) -> dict:
@@ -112,7 +108,6 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
 
         logger.info(f"  Reply from {from_email} ({lead['company']}): {reply['snippet'][:80]}")
 
-        # Try LLM classification first, fall back to keyword matching
         llm_result = llm_classify_reply(reply["snippet"], lead)
         if llm_result:
             intent = llm_result.get("intent", "question")
@@ -120,16 +115,17 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
             logger.info(f"    → Intent (LLM): {intent}")
         else:
             intent, draft_answer = _classify_reply(reply["snippet"])
-            logger.info(f"    → Intent (rule-based): {intent}")
+            logger.info(f"    → Intent (rule): {intent}")
 
         if intent == "auto_reply":
             mark_as_read(reply["message_id"])
+            continue
 
         elif intent == "unsubscribe":
             if not dry_run:
                 update_lead_status(lead["id"], "unsubscribed")
                 mark_as_read(reply["message_id"])
-            logger.info(f"    Marked {from_email} as unsubscribed")
+            logger.info(f"    Unsubscribed: {from_email}")
             unsubscribes += 1
 
         elif intent == "not_interested":
@@ -140,23 +136,16 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
 
         elif intent in ("interested", "question"):
             first_name = (lead["name"] or "").split()[0] or "there"
-
-            # Generate / refresh their personalized demo
             demo_url = generate_demo(lead)
-            logger.info(f"    Demo URL: {demo_url}")
 
             if intent == "interested":
-                subject, html_body = meeting_confirmation(first_name, lead["company"], demo_url=demo_url)
+                body = "<p>Glad you're interested! Here's what I had in mind for you —</p>"
             else:
-                subject = f"Re: {reply['subject']}"
-                html_body = f"""
-<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
-<p>Hi {first_name},</p>
-<p>{draft_answer}</p>
-<p>Also — I put together a personalized demo dashboard for {lead['company']} so you can see concretely what we'd build:<br>
-<a href="{demo_url}" style="color: #0066ff; font-weight: 600;">View {lead['company']}'s Demo →</a></p>
-<p>Best,<br><strong>{config.SENDER_NAME}</strong><br>{config.COMPANY_NAME}</p>
-</body></html>"""
+                extra = f"<p>{draft_answer}</p>" if draft_answer else ""
+                body = f"<p>Great question!</p>{extra}"
+
+            subject = f"Re: {reply['subject']}"
+            html_body = _build_reply_html(first_name, lead["company"], demo_url, body)
 
             if not dry_run:
                 publish_demos()
@@ -169,8 +158,9 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
                 update_lead_status(lead["id"], "replied",
                                    last_reply_at=datetime.utcnow().isoformat())
                 mark_as_read(reply["message_id"])
+                logger.info(f"    Sent reply + Calendly link to {from_email}")
             else:
-                logger.info(f"    [DRY RUN] Would send {intent} response to {from_email} with demo {demo_url}")
+                logger.info(f"    [DRY RUN] Would reply to {from_email} with demo + Calendly link")
 
             meetings_requested += 1
 
@@ -182,33 +172,17 @@ def run_reply_monitor(dry_run: bool = False) -> dict:
 
 
 def sync_calendly_bookings(dry_run: bool = False) -> dict:
-    events = get_scheduled_events(count=50)
-    booked = 0
-    conn = get_db()
-
-    for event in events:
-        try:
-            for inv in get_event_invitees(event["uuid"]):
-                row = conn.execute(
-                    "SELECT id FROM leads WHERE LOWER(email) = LOWER(?)", (inv["email"],)
-                ).fetchone()
-                if row:
-                    if not dry_run:
-                        update_lead_status(row["id"], "meeting_booked",
-                                           meeting_booked_at=event["start_time"])
-                    logger.info(f"  Meeting booked: {inv['email']} at {event['start_time']}")
-                    booked += 1
-        except Exception as e:
-            logger.error(f"  Calendly sync error: {e}")
-
-    conn.close()
-    return {"meetings_synced": booked}
+    """
+    No Calendly API needed — leads self-book via the link in emails.
+    This is a no-op kept for compatibility.
+    """
+    logger.info("Calendly sync skipped — using link-based booking (no API key required)")
+    return {"meetings_synced": 0}
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     import sys
     dry = "--dry-run" in sys.argv
-    r1 = run_reply_monitor(dry_run=dry)
-    r2 = sync_calendly_bookings(dry_run=dry)
-    print(f"\nSales Agent done: replies={r1}, calendly={r2}")
+    result = run_reply_monitor(dry_run=dry)
+    print(f"\nSales Agent done: {result}")
